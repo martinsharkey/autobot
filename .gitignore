@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+env/
+venv/
+
+# Environment
+.env
+
+# VS Code
+.vscode/
+*.vsix
+
+# Node
+node_modules/
+dist/
+
+# Data
+autobot_data/
+
+# OS
+.DS_Store
+Thumbs.db

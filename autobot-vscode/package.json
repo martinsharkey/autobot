@@ -1,0 +1,164 @@
+{
+    "name": "autobot",
+    "displayName": "AUTOBOT",
+    "description": "Autonomous AI coding agent running inside VS Code",
+    "version": "1.0.0",
+    "publisher": "autobot-dev",
+    "license": "MIT",
+    "engines": {
+        "vscode": "^1.85.0"
+    },
+    "categories": [
+        "Chat",
+        "Programming Languages",
+        "Machine Learning"
+    ],
+    "keywords": [
+        "ai",
+        "agent",
+        "autonomous",
+        "coding",
+        "llm"
+    ],
+    "activationEvents": [
+        "onStartupFinished"
+    ],
+    "main": "./dist/extension.js",
+    "contributes": {
+        "commands": [
+            {
+                "command": "autobot.startChat",
+                "title": "AUTOBOT: Start New Chat",
+                "category": "AUTOBOT"
+            },
+            {
+                "command": "autobot.runTask",
+                "title": "AUTOBOT: Run Task...",
+                "category": "AUTOBOT"
+            },
+            {
+                "command": "autobot.switchMode",
+                "title": "AUTOBOT: Switch Mode...",
+                "category": "AUTOBOT"
+            },
+            {
+                "command": "autobot.showMemory",
+                "title": "AUTOBOT: Show Memory & Skills",
+                "category": "AUTOBOT"
+            },
+            {
+                "command": "autobot.explainCode",
+                "title": "AUTOBOT: Explain Selected Code",
+                "category": "AUTOBOT"
+            },
+            {
+                "command": "autobot.refactorCode",
+                "title": "AUTOBOT: Refactor Selected Code",
+                "category": "AUTOBOT"
+            },
+            {
+                "command": "autobot.stop",
+                "title": "AUTOBOT: Stop Agent",
+                "category": "AUTOBOT"
+            }
+        ],
+        "configuration": {
+            "title": "AUTOBOT",
+            "properties": {
+                "autobot.defaultMode": {
+                    "type": "string",
+                    "default": "coder",
+                    "enum": ["architect", "coder", "reflector", "learner", "evolver"],
+                    "description": "Default agent mode"
+                },
+                "autobot.maxTurns": {
+                    "type": "number",
+                    "default": 50,
+                    "description": "Maximum conversation turns per task"
+                },
+                "autobot.temperature": {
+                    "type": "number",
+                    "default": 0.5,
+                    "description": "LLM temperature (0.0-1.0)"
+                },
+                "autobot.autoImprove": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Enable periodic self-improvement cycles"
+                },
+                "autobot.autoReflect": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Enable automatic reflection after tool use"
+                }
+            }
+        },
+        "menus": {
+            "editor/context": [
+                {
+                    "command": "autobot.explainCode",
+                    "group": "autobot@1"
+                },
+                {
+                    "command": "autobot.refactorCode",
+                    "group": "autobot@2"
+                }
+            ],
+            "commandPalette": [
+                {
+                    "command": "autobot.explainCode",
+                    "when": "editorHasSelection"
+                },
+                {
+                    "command": "autobot.refactorCode",
+                    "when": "editorHasSelection"
+                }
+            ]
+        },
+        "keybindings": [
+            {
+                "command": "autobot.startChat",
+                "key": "ctrl+alt+a",
+                "mac": "cmd+alt+a"
+            },
+            {
+                "command": "autobot.explainCode",
+                "key": "ctrl+alt+e",
+                "mac": "cmd+alt+e"
+            }
+        ],
+        "viewsContainers": {
+            "activitybar": [
+                {
+                    "id": "autobot-sidebar",
+                    "title": "AUTOBOT",
+                    "icon": "$(rocket)"
+                }
+            ]
+        },
+        "views": {
+            "autobot-sidebar": [
+                {
+                    "type": "webview",
+                    "id": "autobot.chat",
+                    "name": "Chat"
+                },
+                {
+                    "id": "autobot.memory",
+                    "name": "Memory"
+                }
+            ]
+        }
+    },
+    "scripts": {
+        "vscode:prepublish": "npm run compile",
+        "compile": "tsc -p ./",
+        "watch": "tsc -watch -p ./",
+        "package": "vsce package"
+    },
+    "devDependencies": {
+        "@types/vscode": "^1.85.0",
+        "@types/node": "^20.0.0",
+        "typescript": "^5.3.0"
+    }
+}
