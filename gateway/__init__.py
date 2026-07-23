@@ -31,8 +31,16 @@ class _PluginWarningFilter(StringIO):
 _plugin_warn_stream: IO[str] = _PluginWarningFilter()
 sys.stderr = _plugin_warn_stream
 
-from gateway.routers import agent, chat, system
+from gateway.routers import agent, chat, mcp, system
 from gateway.state import config
+
+try:
+    from autobot.license import check_tamper
+    _tamper = check_tamper()
+    if _tamper.get("tampered"):
+        print(f"[license] tamper detected: {_tamper.get('mismatches')}")
+except Exception as _exc:
+    print(f"[license] tamper check skipped: {_exc}")
 
 sys.stderr = _original_stderr
 
@@ -63,6 +71,7 @@ def create_app() -> FastAPI:
     app.include_router(system.router)
     app.include_router(chat.router)
     app.include_router(agent.router)
+    app.include_router(mcp.router)
 
     return app
 

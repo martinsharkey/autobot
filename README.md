@@ -50,11 +50,17 @@ The gateway runs on `http://127.0.0.1:8001` and exposes:
 - `GET /v1/agent/status` — check agent status
 - `POST /v1/agent/stop` — stop running agent
 - `POST /v1/chat/completions` — direct LLM chat
-- `GET /v1/memory` — query agent memory
+- `GET /v1/memory` — query agent memory (tree view data for VS Code sidebar)
 - `GET /v1/skills` — list available skills
 - `POST /v1/notifications/telegram/webhook` — Telegram slash command webhook
 - `POST /v1/notifications/whatsapp/webhook` — WhatsApp message webhook
 - `POST /v1/notifications/send` — send notification via Telegram/WhatsApp
+- `GET /v1/mcp/servers` — list MCP server configurations
+- `POST /v1/mcp/servers` — add MCP server
+- `DELETE /v1/mcp/servers/{name}` — remove MCP server
+- `POST /v1/mcp/servers/{name}/connect` — connect to MCP server
+- `GET /v1/mcp/tools` — list MCP tools
+- `POST /v1/mcp/tools/call` — call an MCP tool
 
 ### 4. Use the CLI
 
@@ -86,6 +92,12 @@ code --install-extension autobot-2.0.0.vsix
 
 ## Features
 
+### Security & IP Protection
+- License verification with tamper detection (`autobot/license.py`)
+- Baseline hash validation for core files
+- Governance audit logging and safety rails
+- Tool result verification with confidence scoring
+
 ### Fully Autonomous Execution
 - Decompose goals into steps
 - Execute with tool use (read, write, search, command)
@@ -116,10 +128,25 @@ code --install-extension autobot-2.0.0.vsix
 - Prompts are augmented with active skill context
 
 ### Free LLM Routing
-- Routes across 18+ free/low-cost providers
+- Routes across 19 free/low-cost providers
 - Automatic failover on errors
 - Health-based load balancing
 - GitHub-based provider discovery
+
+### MCP Tools Integration
+- Real MCP protocol support via `mcp` Python SDK (stdio, SSE, streamable HTTP)
+- Gateway endpoints for MCP server management (`/v1/mcp/servers`, `/v1/mcp/tools`)
+- MCP tools appear alongside Hermes tools in the unified tool registry
+
+### Remote Commands & Notifications
+- Telegram slash commands (`/status`, `/run`, `/evolve`, `/recover`)
+- WhatsApp message webhooks
+- Autonomous recovery with completion notifications
+
+### Windows Compatibility
+- PATH/.exe resolution shims for `which` logic
+- Environment preservation for subprocesses
+- Context sanitization with threat-pattern scanning
 
 ## Configuration
 
