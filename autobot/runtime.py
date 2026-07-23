@@ -4,10 +4,13 @@ from __future__ import annotations
 import asyncio
 import inspect
 import os
+from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
 from autobot.agent import AutobotAgent
+from autobot.capability_graph import ToolCapabilityGraph
 from autobot.compute import publish_result
+from autobot.context_sanitizer import sanitize_context_files
 from autobot.deploy import prepare_release, validate_release
 from autobot.evolution import GapAnalysisEngine
 from autobot.governance import GovernanceModule, SafetyRails
@@ -16,8 +19,12 @@ from autobot.mcp.bridge import MCPBridge
 from autobot.memory import MemoryStore
 from autobot.overnight import OvernightLearner
 from autobot.plugins.interface import PluginRegistry
+from autobot.safety import SafetyPolicy
 from autobot.subagent import SubAgentSpawner
 from autobot.tools import ToolRegistry
+from autobot.windows_compat import ensure_windows_compat
+from autobot.trading.mt5_connector import MT5Connector
+from autobot.trading.risk_manager import RiskManager
 
 
 class AgentRuntime:
@@ -33,8 +40,18 @@ class AgentRuntime:
         self._mcp = MCPBridge(server_url=os.getenv("AUTOBOT_MCP_SERVER", ""), api_key=os.getenv("AUTOBOT_MCP_KEY"))
         self._evolution = GapAnalysisEngine()
         self._overnight = OvernightLearner()
+        self._safety = SafetyPolicy()
+        self._mt5 = MT5Connector()
+        self._risk = RiskManager()
+        from autobot.delegation import HierarchicalDelegator
+        self._delegator = HierarchicalDelegator()
+        ensure_windows_compat()
         try:
             self._plugins.discover()
+        except Exception:
+            pass
+        try:
+            sanitize_context_files(Path(os.getenv("AUTOBOT_HOME", ".")))
         except Exception:
             pass
 
@@ -45,6 +62,8 @@ class AgentRuntime:
         return cls._instance
 
     async def execute(self, goal: str, mode: str = "coder", **kwargs) -> Dict[str, Any]:
+        if self._safety.is_aborted():
+            return {"status": "aborted", "mode": mode, "result": "Safety abort flag is set. Resetting abort."}
         self._memory.add(f"execute: {goal[:100]}", source="runtime", metadata={"mode": mode})
         if self._governance:
             try:
@@ -55,6 +74,15 @@ class AgentRuntime:
             try:
                 gaps = self._evolution.scan()
                 self._memory.add(f"evolution_scan: {len(gaps)} gaps", source="evolution", metadata={"gaps": gaps})
+            except Exception:
+                pass
+        if mode == "trader":
+            try:
+                account = self._mt5.get_account_info()
+                if "error" not in account:
+                    risk = self._risk.validate_order({"volume": 0.1}, account)
+                    if not risk.get("allowed", False):
+                        return {"status": "blocked", "mode": mode, "result": f"Risk blocked: {risk.get('reason')}"}
             except Exception:
                 pass
         result = await self._agent.run(goal)
@@ -114,6 +142,9 @@ class AgentRuntime:
 
     def get_mcp(self) -> MCPBridge:
         return self._mcp
+
+    def get_safety(self) -> SafetyPolicy:
+        return self._safety
 
     def switch_mode(self, mode: str) -> None:
         self._agent.switch_mode(mode)

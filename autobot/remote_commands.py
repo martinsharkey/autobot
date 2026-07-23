@@ -1,6 +1,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import os
 from typing import Any, Dict, Optional
@@ -40,10 +41,6 @@ class RemoteCommandProtocol:
     def _dispatch_command(self, text: str, source: str, **context) -> Optional[Dict[str, Any]]:
         if text.startswith("/"):
             return self._handle_slash_command(text, source, **context)
-        if source == "telegram" and context.get("chat_id") == self._notifier._telegram_chat_id:
-            return self._handle_freeform(text, source, **context)
-        if source == "whatsapp" and context.get("recipient") == self._notifier._whatsapp_recipient:
-            return self._handle_freeform(text, source, **context)
         return None
 
     def _handle_slash_command(self, text: str, source: str, **context) -> Dict[str, Any]:
@@ -60,15 +57,14 @@ class RemoteCommandProtocol:
             result = asyncio.run(self._runtime.execute(goal, mode="coder"))
             return {"command": "run", "source": source, "goal": goal, "result": result}
         if cmd == "/evolve":
-            return {"command": "evolve", "source": source, "status": "triggered"}
+            import asyncio
+            result = asyncio.run(self._runtime.evolve())
+            return {"command": "evolve", "source": source, "result": result}
         if cmd == "/recover":
-            return {"command": "recover", "source": source, "status": "triggered"}
+            import asyncio
+            result = asyncio.run(self._runtime.overnight())
+            return {"command": "recover", "source": source, "result": result}
         return {"command": cmd, "source": source, "error": "unknown_command"}
-
-    def _handle_freeform(self, text: str, source: str, **context) -> Dict[str, Any]:
-        import asyncio
-        result = asyncio.run(self._runtime.execute(text, mode="coder"))
-        return {"command": "freeform", "source": source, "result": result}
 
     def autonomous_recovery(self, failure_reason: str) -> Dict[str, Any]:
         steps = []
@@ -76,8 +72,9 @@ class RemoteCommandProtocol:
             rt = self._runtime
             status = rt.get_memory().get_stats()
             steps.append(f"memory_check: {status}")
+            self._notifier.notify_recovery(failure_reason, " | ".join(steps) or "no_recovery_steps")
         except Exception as exc:
-            steps.append(f"memory_check_failed: {exc}")
+            steps.append(f"recovery_failed: {exc}")
         action = " | ".join(steps) or "no_recovery_steps"
-        self._notifier.notify_recovery(failure_reason, action)
         return {"status": "recovery_attempted", "reason": failure_reason, "steps": steps, "notification": "sent"}
+

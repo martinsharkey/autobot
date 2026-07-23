@@ -13,6 +13,8 @@ from autobot.tools import ToolRegistry
 from autobot.memory import MemoryStore
 from autobot.verification import ToolResultVerifier
 from autobot.capability_graph import ToolCapabilityGraph
+from autobot.rag.retriever import SemanticRagRetriever
+from autobot.fact_checker import FactChecker
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent / "hermes-repo"))
 
@@ -52,6 +54,8 @@ class HermesLoop:
         self._last_task_id: Optional[str] = None
         self._verifier = ToolResultVerifier()
         self._capability_graph = ToolCapabilityGraph(tools)
+        self._rag = SemanticRagRetriever()
+        self._fact_checker = FactChecker()
 
     async def _refresh_capabilities(self) -> None:
         try:
@@ -59,12 +63,23 @@ class HermesLoop:
         except Exception as exc:
             logger.debug("capability probe failed: %s", exc)
 
+    async def _augment_with_rag(self, goal: str) -> str:
+        try:
+            results = self._rag.search(goal, max_results=3)
+            if results:
+                snippets = "\n".join(f"- {r.get('text', '')[:200]}" for r in results)
+                return f"[Retrieved context]\n{snippets}\n\n[User goal]\n{goal}"
+        except Exception as exc:
+            logger.debug("rag augment failed: %s", exc)
+        return goal
+
     async def run(self, goal: str) -> str:
         self.tools.ensure_loaded()
         await self._refresh_capabilities()
-        citation_goal = goal
+        rag_goal = await self._augment_with_rag(goal)
+        citation_goal = rag_goal
         if any(keyword in goal.lower() for keyword in ["search", "find", "look up", "research", "url", "http", "citation"]):
-            citation_goal = f"{goal}\n\nIMPORTANT: Always include source citations (URLs or file paths) in your final response. If you use web search or file reading tools, reference the sources you used."
+            citation_goal = f"{rag_goal}\n\nIMPORTANT: Always include source citations (URLs or file paths) in your final response. If you use web search or file reading tools, reference the sources you used."
         capability_block = self._capability_graph.to_prompt_block()
         final_goal = f"{capability_block}\n\n{citation_goal}"
         agent = AIAgent(
@@ -94,14 +109,17 @@ class HermesLoop:
                 except Exception:
                     avg_confidence = 0.0
             citation_count = 0
+            fact_check = {"supported": False, "confidence": 0.0}
             if any(keyword in goal.lower() for keyword in ["search", "find", "look up", "research", "url", "http", "citation"]):
                 try:
                     import re
                     urls = re.findall(r'https?://[^\s)>\]"\']+', final)
                     citation_count = len(urls)
+                    sources = [{"text": final, "source": "response"}]
+                    fact_check = self._fact_checker.check(goal, sources)
                 except Exception:
                     citation_count = 0
-            self.memory.add(final or goal, source=self.mode, metadata={"message_count": len(messages), "avg_confidence": avg_confidence, "tool_calls": tool_calls, "citation_count": citation_count})
+            self.memory.add(final or goal, source=self.mode, metadata={"message_count": len(messages), "avg_confidence": avg_confidence, "tool_calls": tool_calls, "citation_count": citation_count, "fact_check": fact_check})
             return final or str(result)
         finally:
             try:

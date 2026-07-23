@@ -9,6 +9,7 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from gateway.state import active_agents, agent_task_counter, config
 from autobot.runtime import AgentRuntime
 from autobot.skills import SkillManager
+from autobot.remote_commands import RemoteCommandProtocol
 
 router = APIRouter()
 
@@ -18,12 +19,25 @@ async def agent_run(request: Request):
     body = await request.json()
     goal = body.get("goal", "")
     mode = body.get("mode", "coder")
-    max_loops = body.get("max_loops", 50)
     stream = bool(body.get("stream", False))
+    source = body.get("source", "api")
 
     rt = AgentRuntime.shared()
     if mode:
         rt.switch_mode(mode)
+
+    slash_result = None
+    if source == "telegram" or source == "whatsapp" or (isinstance(goal, str) and goal.startswith("/")):
+        rc = RemoteCommandProtocol()
+        if source == "telegram":
+            slash_result = rc.handle_telegram_update({"message": {"text": goal, "chat": {"id": body.get("chat_id", "")}}})
+        elif source == "whatsapp":
+            slash_result = rc.handle_whatsapp_message({"entry": [{"changes": [{"value": {"messages": [{"text": {"body": goal}, "to": body.get("recipient", "")}]}}]}]})
+        else:
+            slash_result = rc._dispatch_command(goal, source="api")
+
+    if slash_result:
+        return {"status": "ok", "mode": mode, "result": str(slash_result), "task_id": ""}
 
     if not stream:
         import time as _time
