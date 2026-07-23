@@ -1,11 +1,8 @@
 
 from __future__ import annotations
 
-import asyncio
 import logging
 from typing import Any, Dict, List, Optional
-
-from autobot.runtime import AgentRuntime
 
 logger = logging.getLogger(__name__)
 
@@ -23,16 +20,17 @@ class TaskNode:
 class HierarchicalDelegator:
     def __init__(self, max_depth: int = 2) -> None:
         self._max_depth = max_depth
-        self._runtime = AgentRuntime.shared()
 
     async def execute_dag(self, nodes: List[TaskNode]) -> Dict[str, Any]:
+        from autobot.runtime import AgentRuntime
+        runtime = AgentRuntime.shared()
         by_id = {node.node_id: node for node in nodes}
         completed: Dict[str, Dict[str, Any]] = {}
         for node in nodes:
             if not node.deps or all(dep in completed for dep in node.deps):
                 node.status = "running"
                 try:
-                    result = await self._runtime.execute(node.goal, mode="coder")
+                    result = await runtime.execute(node.goal, mode="coder")
                     node.result = result
                     node.status = "completed"
                     completed[node.node_id] = result

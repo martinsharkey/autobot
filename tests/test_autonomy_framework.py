@@ -143,9 +143,10 @@ def test_plugin_registry() -> tuple[bool, str]:
 
 def test_mcp_bridge() -> tuple[bool, str]:
     from autobot.mcp.bridge import MCPBridge
+    import asyncio
     mcp = MCPBridge(server_url="", api_key="")
-    tools = mcp.list_tools()
-    call = mcp.call_tool("nonexistent", {})
+    tools = asyncio.run(mcp.list_tools())
+    call = asyncio.run(mcp.call_tool("nonexistent", {}))
     if "error" not in call:
         return False, "MCPBridge missing stub error"
     return True, "MCPBridge stub functional"

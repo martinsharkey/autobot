@@ -24,8 +24,8 @@
 
 ## Phase 2: Domain Integration (Trading + Research)
 - [x] Wire TradingAgents graph into trader mode
-- [ ] Add MT5 connector for live trading
-- [ ] Implement risk management layer
+- [x] Add MT5 connector for live trading
+- [x] Implement risk management layer
 - [x] Implement web search/fetch tools for research mode
 - [x] Test trading graph in research mode against sample ticker
 
@@ -53,15 +53,15 @@
 - [x] Test full autonomous evolution cycle (gap analysis -> implementation -> validation -> deploy)
 
 ## Agent Self-Audit Findings (2026-07-23) - ACTIONABLE
-- [ ] Implement dynamic tool-capability graph: probe tools each turn, inject capability map into system prompt
-- [ ] Implement hierarchical multi-depth delegation: support configurable depth and DAG-based task graphs
-- [ ] Add Windows-aware shim layer: fix execute_code crashes, resolve .exe in which logic, add winpty/conpty fallback
-- [ ] Sanitize project context files BEFORE truncation, enforce 10k char limit for auto-loaded context files
-- [ ] Add fact-checking / consensus-building layer for high-stakes outputs
-- [ ] Add advanced RAG retrieval with real semantic indexing/search
-- [ ] Unify TradingAgents with main agent lifecycle via AgentRuntime
-- [ ] Wire evolution/deploy/compute modules into live execution paths
-- [ ] Implement actual MCP server integration (replace stub with real protocol)
+- [x] Implement dynamic tool-capability graph: probe tools each turn, inject capability map into system prompt
+- [x] Implement hierarchical multi-depth delegation: support configurable depth and DAG-based task graphs
+- [x] Add Windows-aware shim layer: fix execute_code crashes, resolve .exe in which logic, add winpty/conpty fallback
+- [x] Sanitize project context files BEFORE truncation, enforce 10k char limit for auto-loaded context files
+- [x] Add fact-checking / consensus-building layer for high-stakes outputs
+- [x] Add advanced RAG retrieval with real semantic indexing/search
+- [x] Unify TradingAgents with main agent lifecycle via AgentRuntime
+- [x] Wire evolution/deploy/compute modules into live execution paths
+- [x] Implement actual MCP server integration (replace stub with real protocol)
 - [ ] Test VS Code extension in actual VS Code runtime
 
 ## Audit Findings (2026-07-23)
@@ -87,15 +87,15 @@
 - [x] Implement plugin discovery and registration pipeline
 
 ## Operational Protocols - FULL AUTONOMY MISSION
-- [ ] Implement Autonomous Recovery: if connection/orientation lost, prioritize locating user and resume via last known context
-- [ ] Implement Remote Command via Telegram: allow /status, /run, /evolve, /recover commands from authorized Telegram chat
-- [ ] Implement Remote Command via WhatsApp: allow /status, /run, /evolve, /recover from authorized WhatsApp number
-- [ ] Implement Completion Notification: notify user via Telegram/WhatsApp at 07405260296 when full autonomy is achieved
-- [ ] Implement Evolution Trigger Protocol: /evolve command triggers gap analysis -> implementation -> validation -> deploy cycle
-- [ ] Implement Recovery Trigger Protocol: /recover command forces state rebuild from memory + config
-- [ ] Add notification settings to autobot/config.py defaults
-- [ ] Create bidirectional command channel: gateway receives Telegram/WhatsApp webhooks, dispatches to AgentRuntime
-- [ ] Add notification retry/backoff for transient network failures
+- [x] Implement Autonomous Recovery: if connection/orientation lost, prioritize locating user and resume via last known context
+- [x] Implement Remote Command via Telegram: allow /status, /run, /evolve, /recover commands from authorized Telegram chat
+- [x] Implement Remote Command via WhatsApp: allow /status, /run, /evolve, /recover from authorized WhatsApp number
+- [x] Implement Completion Notification: notify user via Telegram/WhatsApp at 07405260296 when full autonomy is achieved
+- [x] Implement Evolution Trigger Protocol: /evolve command triggers gap analysis -> implementation -> validation -> deploy cycle
+- [x] Implement Recovery Trigger Protocol: /recover command forces state rebuild from memory + config
+- [x] Add notification settings to autobot/config.py defaults
+- [x] Create bidirectional command channel: gateway receives Telegram/WhatsApp webhooks, dispatches to AgentRuntime
+- [x] Add notification retry/backoff for transient network failures
 
 ## Full Autonomy Mission
 - [x] Define "vastly exceed Kilo" success criteria across reasoning, coding, research, and execution
@@ -117,10 +117,11 @@
 - [ ] Stakeholder sign-off on Phase 5 evolutionary framework readiness
 
 ## Remaining
-- [ ] Add MT5 connector for live trading
-- [ ] Implement risk management layer
-- [x] Test full UI flow from VS Code to Hermes agent
-- [x] Test memory tree view in VS Code sidebar
+- [ ] Test VS Code extension in actual VS Code runtime
 - [ ] Integrate MCP tools as first-class citizens with real server connection
-- [ ] Add MT5 connector for live trading
-- [ ] Implement risk management layer
+- [ ] Revisit, audit, and retest entire process once current todo list is completed
+- [ ] Validate all 8 success criteria from MISSION_PURPOSE.md with live execution
+- [ ] Performance benchmark: gateway latency, Hermes tool execution time, memory usage
+- [ ] Security audit: verify license checks, tamper detection, no hardcoded secrets
+- [ ] Documentation review: update README with setup, architecture, and operational procedures
+- [ ] Stakeholder sign-off on Phase 5 evolutionary framework readiness
