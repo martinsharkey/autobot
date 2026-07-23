@@ -1,6 +1,7 @@
 ﻿
 from __future__ import annotations
 
+import asyncio
 import os
 import sys
 import time
@@ -58,7 +59,11 @@ class HermesLoop:
             skip_memory=True,
         )
         try:
-            result = agent.run_conversation(user_message=goal, task_id=self._last_task_id)
+            result = await asyncio.to_thread(
+                agent.run_conversation,
+                user_message=goal,
+                task_id=self._last_task_id,
+            )
             final = result.get("final_response") or result.get("response") or ""
             messages = result.get("messages", [])
             self.memory.add(final or goal, source=self.mode, metadata={"message_count": len(messages)})

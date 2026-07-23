@@ -25,7 +25,7 @@ export class AgentClient {
 
     constructor() {
         const cfg = vscode.workspace.getConfiguration('autobot');
-        this.baseUrl = cfg.get<string>('gatewayUrl', 'http://127.0.0.1:8000').replace(/\/$/, '');
+        this.baseUrl = cfg.get<string>('gatewayUrl', 'http://127.0.0.1:8001').replace(/\/$/, '');
         this.apiKey = cfg.get<string>('gatewayApiKey', 'changeme');
     }
 
@@ -52,16 +52,47 @@ export class AgentClient {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${this.apiKey}`,
             },
-            body: JSON.stringify({ goal, mode, max_loops: 50 }),
+            body: JSON.stringify({ goal, mode, max_loops: 50, stream: true }),
         });
         if (!resp.ok) {
             const text = await resp.text();
             throw new Error(`Agent run failed: ${resp.status} ${text}`);
         }
-        const data = await resp.json() as any;
-        this.currentTaskId = data.task_id;
-        onEvent({ type: 'started', text: data.task_id });
-        return data.task_id;
+        const reader = resp.body?.getReader();
+        if (!reader) {
+            throw new Error('Streaming not supported');
+        }
+        const decoder = new TextDecoder();
+        let buffer = '';
+        while (true) {
+            const { value, done } = await reader.read();
+            if (done) break;
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split('\n');
+            buffer = lines.pop() || '';
+            for (const line of lines) {
+                const trimmed = line.trim();
+                if (!trimmed || !trimmed.startsWith('data: ')) continue;
+                const data = trimmed.slice(6).trim();
+                if (data === '[DONE]') {
+                    onEvent({ type: 'completed' });
+                    return Promise.resolve('');
+                }
+                try {
+                    const chunk = JSON.parse(data);
+                    const eventType = chunk.type || 'text';
+                    onEvent({
+                        type: eventType,
+                        text: chunk.text,
+                        name: chunk.name,
+                        args: chunk.args,
+                        count: chunk.count,
+                        max: chunk.max,
+                    });
+                } catch {}
+            }
+        }
+        return Promise.resolve('');
     }
 
     async stopAgent(): Promise<void> {

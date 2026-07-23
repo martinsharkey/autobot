@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import os
-from typing import Any, Dict
+from typing import Dict
 
 from fastapi import APIRouter
 from fastapi.responses import JSONResponse
@@ -63,7 +63,7 @@ async def discover_endpoint():
 
 
 @router.post("/v1/update-providers")
-async def update_providers(request: Any):
+async def update_providers(request: Request):
     if config.gateway_api_key:
         auth = request.headers.get("Authorization", "")
         if auth != f"Bearer {config.gateway_api_key}":

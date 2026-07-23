@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 
 export class Config {
-    static gatewayUrl: string = 'http://127.0.0.1:8000';
+    static gatewayUrl: string = 'http://127.0.0.1:8001';
     static gatewayApiKey: string = 'changeme';
     static defaultMode: string = 'coder';
     static maxLoops: number = 50;

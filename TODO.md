@@ -54,18 +54,18 @@
 - [x] Hallucination Mitigation: add verification layer and tool-result validation
 - [x] Hallucination Mitigation: add citation requirement for web search outputs
 - [x] Modular Architecture: extract gateway routes into dedicated routers
-- [ ] Modular Architecture: define formal plugin interface for new tools
-- [ ] Modular Architecture: integrate MCP tools as first-class citizens
-- [ ] Modular Architecture: add advanced RAG retrieval with citations
+- [x] Modular Architecture: define formal plugin interface for new tools
+- [x] Modular Architecture: integrate MCP tools as first-class citizens
+- [x] Modular Architecture: add advanced RAG retrieval with citations
 - [x] Mission Alignment: formalize single runtime unification protocol
 - [x] Mission Alignment: ensure all evolutionary modules operate through one agent loop
-- [ ] Governance: add autonomous oversight module with safety rails
+- [x] Governance: add autonomous oversight module with safety rails
 - [x] Governance: add output schema validation for mission-critical tools
-- [ ] Governance: implement tiered permission model for self-modification
+- [x] Governance: implement tiered permission model for self-modification
 - [x] Repository: push current state to github.com/martinsharkey/autobot
 
 ## Post-Completion Protocol
-- [ ] Run full integration test suite after any remaining task completion
+- [x] Run full integration test suite after any remaining task completion
 - [ ] Revisit, audit, and retest entire process once current todo list is completed
 - [ ] Validate all 8 success criteria from MISSION_PURPOSE.md with live execution
 - [ ] Performance benchmark: gateway latency, Hermes tool execution time, memory usage
@@ -76,5 +76,5 @@
 ## Remaining
 - [ ] Add MT5 connector for live trading
 - [ ] Implement risk management layer
-- [ ] Test full UI flow from VS Code to Hermes agent
-- [ ] Test memory tree view in VS Code sidebar
+- [x] Test full UI flow from VS Code to Hermes agent
+- [x] Test memory tree view in VS Code sidebar

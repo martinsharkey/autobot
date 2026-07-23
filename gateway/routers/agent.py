@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse, StreamingResponse
 
 from gateway.state import active_agents, agent_task_counter, config
@@ -14,20 +14,22 @@ router = APIRouter()
 
 
 @router.post("/v1/agent/run")
-async def agent_run(req: Any):
-    goal = getattr(req, "goal", "")
-    mode = getattr(req, "mode", "coder")
-    max_loops = getattr(req, "max_loops", 50)
-    stream = getattr(req, "stream", False)
+async def agent_run(request: Request):
+    body = await request.json()
+    goal = body.get("goal", "")
+    mode = body.get("mode", "coder")
+    max_loops = body.get("max_loops", 50)
+    stream = bool(body.get("stream", False))
 
     rt = AgentRuntime.shared()
     if mode:
         rt.switch_mode(mode)
 
     if not stream:
+        import time as _time
         global agent_task_counter
         agent_task_counter += 1
-        task_id = f"task_{int(__import__('time').time()*1000)}_{agent_task_counter}"
+        task_id = f"task_{int(_time.time()*1000)}_{agent_task_counter}"
 
         active_agents[task_id] = {"status": "running", "mode": mode, "goal": goal}
         try:
@@ -78,4 +80,18 @@ async def list_skills():
 @router.get("/v1/memory")
 async def get_memory():
     ms = AgentRuntime.shared().get_memory()
-    return {"entries": [e.to_dict() for e in ms.get_recent(20)], "stats": ms.get_stats()}
+    entries = ms.get_recent(20)
+    return {
+        "entries": [
+            {
+                "id": str(idx),
+                "category": entry.source,
+                "content": entry.text,
+                "importance": 0.5,
+                "created_at": entry.created_at,
+                "metadata": entry.metadata,
+            }
+            for idx, entry in enumerate(entries)
+        ],
+        "stats": ms.get_stats(),
+    }

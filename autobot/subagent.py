@@ -2,15 +2,12 @@
 from __future__ import annotations
 
 import asyncio
-import os
 from typing import Any, Dict, List, Optional
-
-from autobot.runtime import AgentRuntime
 
 
 class SubAgentSpawner:
-    def __init__(self, memory: Optional[MemoryStore] = None) -> None:
-        self.memory = memory or AgentRuntime.shared().get_memory()
+    def __init__(self, memory: Optional[Any] = None) -> None:
+        self.memory = memory
 
     async def spawn(
         self,
@@ -18,17 +15,19 @@ class SubAgentSpawner:
         mode: str = "coder",
         context: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
+        from autobot.runtime import AgentRuntime
         rt = AgentRuntime.shared()
+        memory = self.memory or rt.get_memory()
         try:
             result = await rt.spawn(task, mode=mode)
-            self.memory.add(
+            memory.add(
                 f"Sub-agent ({mode}) completed: {task[:100]}",
                 source="subagent",
                 metadata={"mode": mode, "context": context, "result": result},
             )
             return {"status": "ok", "mode": mode, "result": result}
         except Exception as exc:
-            self.memory.add(
+            memory.add(
                 f"Sub-agent ({mode}) failed: {task[:100]} — {exc}",
                 source="subagent",
                 metadata={"mode": mode, "context": context, "error": str(exc)},
