@@ -1,5 +1,25 @@
 # SESSION_LOG.md
 
+## 2026-07-23 12:30
+**Objective:** Resolve runtime blockers for live gateway and VS Code extension integration
+**Context:** After refactoring the gateway into routers and unifying agent runtime, several blocking issues prevented the actual Web UI/MCP test flow from succeeding.
+**Progress:**
+- Fixed circular import between `autobot/runtime.py` and `autobot/subagent.py`
+- Fixed recursion in `SubAgentSpawner.__init__` calling `AgentRuntime.shared()`
+- Resolved `gateway.session_context` module shadowing by adding stub
+- Resolved event-loop deadlock by running synchronous `run_conversation()` in `asyncio.to_thread()`
+- Wired streaming SSE support in `/v1/agent/run` endpoint
+- Updated VS Code extension default port from 8000 to 8001
+- Fixed memory endpoint format for VS Code TreeDataProvider
+- Verified all endpoints: health, agent/run (stream + non-stream), memory
+- Pushed to github.com/martinsharkey/autobot (commit 58e7ba1)
+
+**Remaining:**
+- Add MT5 connector for live trading
+- Implement risk management layer
+- Revisit, audit, and retest entire process once current todo list is completed
+- Validate all 8 success criteria from MISSION_PURPOSE.md with live execution
+
 ## 2026-07-23 11:20
 **Objective:** Continue post-audit implementation - runtime unification and GitHub sync
 **Context:** User confirmed evolutionary elements are core mission requirements. Completed verification layer, gateway router extraction, and AgentRuntime unification.
