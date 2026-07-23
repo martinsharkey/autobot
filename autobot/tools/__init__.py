@@ -21,16 +21,6 @@ from tools.registry import (  # noqa: E402
     tool_result,
     invalidate_check_fn_cache,
 )
-from model_tools import (  # noqa: E402
-    get_tool_definitions,
-    handle_function_call,
-    get_toolset_for_tool,
-    check_toolset_requirements,
-    check_tool_availability,
-    get_all_tool_names,
-    coerce_tool_args,
-)
-
 
 _verifier = ToolResultVerifier()
 
@@ -58,6 +48,7 @@ class ToolRegistry:
     def get_definitions(self, toolsets: Optional[List[str]] = None) -> List[Dict[str, Any]]:
         self.ensure_loaded()
         try:
+            from model_tools import get_tool_definitions
             return get_tool_definitions(required_toolsets=toolsets) or []
         except Exception:
             return []
@@ -65,6 +56,7 @@ class ToolRegistry:
     def get_names(self) -> List[str]:
         self.ensure_loaded()
         try:
+            from model_tools import get_all_tool_names
             return get_all_tool_names() or []
         except Exception:
             return []
