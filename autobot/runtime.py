@@ -9,6 +9,7 @@ from typing import Any, Dict, List, Optional, Union
 
 from autobot.agent import AutobotAgent
 from autobot.capability_graph import ToolCapabilityGraph
+from autobot.coaching_framework import CoachingFramework
 from autobot.compute import publish_result
 from autobot.context_sanitizer import sanitize_context_files
 from autobot.deploy import prepare_release, validate_release
@@ -45,6 +46,7 @@ class AgentRuntime:
         self._risk = RiskManager()
         from autobot.delegation import HierarchicalDelegator
         self._delegator = HierarchicalDelegator()
+        self._coaching: Optional[CoachingFramework] = None
         ensure_windows_compat()
         try:
             self._plugins.discover()
@@ -145,6 +147,11 @@ class AgentRuntime:
 
     def get_safety(self) -> SafetyPolicy:
         return self._safety
+
+    def get_coaching(self) -> CoachingFramework:
+        if self._coaching is None:
+            self._coaching = CoachingFramework()
+        return self._coaching
 
     def switch_mode(self, mode: str) -> None:
         self._agent.switch_mode(mode)

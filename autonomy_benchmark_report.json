@@ -1,0 +1,155 @@
+{
+  "summary": {
+    "timestamp": "2026-07-23T15:13:17.326284+00:00",
+    "passed": 24,
+    "total": 24,
+    "rate": 1.0,
+    "gateway_url": "http://127.0.0.1:8001"
+  },
+  "results": [
+    {
+      "name": "health",
+      "passed": true,
+      "detail": "providers=19",
+      "elapsed": 0.376
+    },
+    {
+      "name": "providers",
+      "passed": true,
+      "detail": "active_providers=19/19",
+      "elapsed": 0.259
+    },
+    {
+      "name": "chat",
+      "passed": true,
+      "detail": "response='Ex'",
+      "elapsed": 4.152
+    },
+    {
+      "name": "memory",
+      "passed": true,
+      "detail": "entries=20",
+      "elapsed": 0.18
+    },
+    {
+      "name": "skills",
+      "passed": true,
+      "detail": "skills=0",
+      "elapsed": 0.203
+    },
+    {
+      "name": "agent_status",
+      "passed": true,
+      "detail": "active_tasks=0",
+      "elapsed": 0.204
+    },
+    {
+      "name": "agent_run",
+      "passed": true,
+      "detail": "task_id=task_1784819529651_1, result='Hi'",
+      "elapsed": 61.678
+    },
+    {
+      "name": "governance",
+      "passed": true,
+      "detail": "governance audit logged without exception",
+      "elapsed": 4.296
+    },
+    {
+      "name": "verification",
+      "passed": true,
+      "detail": "ToolResultVerifier wired into ToolRegistry",
+      "elapsed": 0.492
+    },
+    {
+      "name": "confidence",
+      "passed": true,
+      "detail": "HermesLoop has _verifier for confidence scoring",
+      "elapsed": 0.663
+    },
+    {
+      "name": "plugins",
+      "passed": true,
+      "detail": "discovered=0 plugins",
+      "elapsed": 0.0
+    },
+    {
+      "name": "mcp",
+      "passed": true,
+      "detail": "MCPBridge stub functional",
+      "elapsed": 0.0
+    },
+    {
+      "name": "notifications",
+      "passed": true,
+      "detail": "channels=2, skipped=2",
+      "elapsed": 0.002
+    },
+    {
+      "name": "remote_commands",
+      "passed": true,
+      "detail": "telegram /status dispatched",
+      "elapsed": 0.003
+    },
+    {
+      "name": "recovery",
+      "passed": true,
+      "detail": "recovery attempted and notification sent",
+      "elapsed": 0.0
+    },
+    {
+      "name": "vscode_port",
+      "passed": true,
+      "detail": "vs_code_port=8001,found=True",
+      "elapsed": 0.003
+    },
+    {
+      "name": "runtime_wiring",
+      "passed": true,
+      "detail": "AgentRuntime wires all required components",
+      "elapsed": 0.0
+    },
+    {
+      "name": "autonomy_framework_file",
+      "passed": true,
+      "detail": "AUTONOMY_FRAMEWORK.md contains all 5 readiness gates",
+      "elapsed": 0.001
+    },
+    {
+      "name": "self_audit",
+      "passed": true,
+      "detail": "audit_exists size=7557 chars",
+      "elapsed": 0.001
+    },
+    {
+      "name": "todo_mission",
+      "passed": true,
+      "detail": "autonomy mission and protocols present in TODO.md",
+      "elapsed": 0.001
+    },
+    {
+      "name": "session_log",
+      "passed": true,
+      "detail": "session_log_updated size=15434 chars",
+      "elapsed": 0.0
+    },
+    {
+      "name": "telemetry",
+      "passed": true,
+      "detail": "telemetry_events=5",
+      "elapsed": 0.001
+    },
+    {
+      "name": "mcp_endpoints",
+      "passed": true,
+      "detail": "mcp_servers_endpoint_working",
+      "elapsed": 0.439
+    },
+    {
+      "name": "coaching_endpoints",
+      "passed": true,
+      "detail": "coaching_status_endpoint_working",
+      "elapsed": 0.333
+    }
+  ]
+}

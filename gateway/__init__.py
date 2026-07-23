@@ -31,7 +31,7 @@ class _PluginWarningFilter(StringIO):
 _plugin_warn_stream: IO[str] = _PluginWarningFilter()
 sys.stderr = _plugin_warn_stream
 
-from gateway.routers import agent, chat, mcp, system
+from gateway.routers import agent, chat, coaching, mcp, system
 from gateway.state import config
 
 try:
@@ -72,6 +72,7 @@ def create_app() -> FastAPI:
     app.include_router(chat.router)
     app.include_router(agent.router)
     app.include_router(mcp.router)
+    app.include_router(coaching.router)
 
     return app
 
