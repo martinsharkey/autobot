@@ -42,7 +42,7 @@ Edit `.env` and add at least one provider key (e.g., `OPENROUTER_API_KEY`, `GROQ
 .\run-gateway.ps1
 ```
 
-The gateway runs on `http://127.0.0.1:8000` and exposes:
+The gateway runs on `http://127.0.0.1:8001` and exposes:
 - `GET /v1/health` — health check
 - `GET /v1/providers` — list configured providers
 - `GET /v1/discover` — discover free LLM providers
@@ -52,6 +52,9 @@ The gateway runs on `http://127.0.0.1:8000` and exposes:
 - `POST /v1/chat/completions` — direct LLM chat
 - `GET /v1/memory` — query agent memory
 - `GET /v1/skills` — list available skills
+- `POST /v1/notifications/telegram/webhook` — Telegram slash command webhook
+- `POST /v1/notifications/whatsapp/webhook` — WhatsApp message webhook
+- `POST /v1/notifications/send` — send notification via Telegram/WhatsApp
 
 ### 4. Use the CLI
 
@@ -154,9 +157,22 @@ npm run package
 
 ## Roadmap
 
+- [x] Modular gateway with FastAPI routers
+- [x] AgentRuntime single execution interface
+- [x] Tool verification and governance layer
+- [x] Tool capability graph with per-turn probing
+- [x] Hierarchical task delegation (DAG)
+- [x] Windows compatibility shims
+- [x] Context file sanitization
+- [x] Fact-checking and consensus layer
+- [x] Semantic RAG retriever with citations
+- [x] Safety sandbox with kill-switch
+- [x] Telegram/WhatsApp remote commands
+- [x] Autonomous recovery protocol
+- [x] MT5 connector and risk management
+- [x] MCP server integration bridge
 - [ ] WebSocket streaming for real-time agent output
 - [ ] Vector memory with embeddings
-- [ ] MCP tool integration
 - [ ] Multi-file code editing with AST safety
 - [ ] Docker sandboxed execution
 - [ ] Voice interaction mode
