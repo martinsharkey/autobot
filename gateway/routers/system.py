@@ -1,14 +1,17 @@
 
 from __future__ import annotations
 
+import json
+import logging
 import os
 from typing import Dict
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 
 from gateway.state import config, provider_health, provider_failure_count
 
+logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
@@ -69,3 +72,49 @@ async def update_providers(request: Request):
         if auth != f"Bearer {config.gateway_api_key}":
             return JSONResponse(status_code=401, content={"error": "Invalid gateway API key"})
     return {"status": "ok", "message": "Provider update handled by discovery"}
+
+
+@router.post("/v1/notifications/telegram/webhook")
+async def telegram_webhook(request: Request):
+    try:
+        update = await request.json()
+        from autobot.remote_commands import RemoteCommandProtocol
+        rc = RemoteCommandProtocol()
+        result = rc.handle_telegram_update(update)
+        if result is None:
+            return JSONResponse(content={"status": "ignored"})
+        return JSONResponse(content=result)
+    except Exception as exc:
+        logger.warning("telegram webhook failed: %s", exc)
+        return JSONResponse(status_code=200, content={"status": "error", "error": str(exc)})
+
+
+@router.post("/v1/notifications/whatsapp/webhook")
+async def whatsapp_webhook(request: Request):
+    try:
+        payload = await request.json()
+        from autobot.remote_commands import RemoteCommandProtocol
+        rc = RemoteCommandProtocol()
+        result = rc.handle_whatsapp_message(payload)
+        if result is None:
+            return JSONResponse(content={"status": "ignored"})
+        return JSONResponse(content=result)
+    except Exception as exc:
+        logger.warning("whatsapp webhook failed: %s", exc)
+        return JSONResponse(status_code=200, content={"status": "error", "error": str(exc)})
+
+
+@router.post("/v1/notifications/send")
+async def send_notification(request: Request):
+    if config.gateway_api_key:
+        auth = request.headers.get("Authorization", "")
+        if auth != f"Bearer {config.gateway_api_key}":
+            return JSONResponse(status_code=401, content={"error": "Invalid gateway API key"})
+    body = await request.json()
+    text = body.get("text", "")
+    if not text:
+        return JSONResponse(status_code=400, content={"error": "missing text"})
+    from autobot.notifications import NotificationClient
+    nc = NotificationClient()
+    result = nc.notify(text, priority=body.get("priority", "normal"))
+    return JSONResponse(content=result)

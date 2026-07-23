@@ -7,10 +7,14 @@ import os
 from typing import Any, Dict, List, Optional, Union
 
 from autobot.agent import AutobotAgent
+from autobot.compute import publish_result
+from autobot.deploy import prepare_release, validate_release
+from autobot.evolution import GapAnalysisEngine
 from autobot.governance import GovernanceModule, SafetyRails
 from autobot.hermes_loop import HermesLoop
 from autobot.mcp.bridge import MCPBridge
 from autobot.memory import MemoryStore
+from autobot.overnight import OvernightLearner
 from autobot.plugins.interface import PluginRegistry
 from autobot.subagent import SubAgentSpawner
 from autobot.tools import ToolRegistry
@@ -27,6 +31,8 @@ class AgentRuntime:
         self._governance = GovernanceModule()
         self._plugins = PluginRegistry()
         self._mcp = MCPBridge(server_url=os.getenv("AUTOBOT_MCP_SERVER", ""), api_key=os.getenv("AUTOBOT_MCP_KEY"))
+        self._evolution = GapAnalysisEngine()
+        self._overnight = OvernightLearner()
         try:
             self._plugins.discover()
         except Exception:
@@ -43,6 +49,12 @@ class AgentRuntime:
         if self._governance:
             try:
                 self._governance.log_audit("execute", {"goal": goal[:200], "mode": mode})
+            except Exception:
+                pass
+        if mode == "evolver":
+            try:
+                gaps = self._evolution.scan()
+                self._memory.add(f"evolution_scan: {len(gaps)} gaps", source="evolution", metadata={"gaps": gaps})
             except Exception:
                 pass
         result = await self._agent.run(goal)
@@ -73,6 +85,23 @@ class AgentRuntime:
 
     async def batch(self, tasks: list[Dict[str, Any]]) -> list[Dict[str, Any]]:
         return await self._spawner.spawn_batch(tasks)
+
+    async def evolve(self) -> Dict[str, Any]:
+        gaps = self._evolution.scan()
+        release = prepare_release()
+        validation = validate_release(release.get("staging"))
+        self._memory.add(f"evolve: {len(gaps)} gaps, staging={release.get('staging')}", source="evolution", metadata={"gaps": gaps, "release": release, "validation": validation})
+        if validation.get("valid"):
+            publish_result("evolution", {"gaps": gaps, "release": release})
+            return {"status": "evolved", "gaps": len(gaps), "release": release}
+        return {"status": "validation_failed", "validation": validation}
+
+    async def overnight(self) -> Dict[str, Any]:
+        if not self._overnight.should_run():
+            return {"status": "skipped", "reason": "not_yet_due"}
+        result = self._overnight.run_curator()
+        self._memory.add("overnight_curator_run", source="overnight", metadata=result)
+        return {"status": "ran", "result": result}
 
     def get_memory(self) -> MemoryStore:
         return self._memory

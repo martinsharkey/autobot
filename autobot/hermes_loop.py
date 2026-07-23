@@ -12,6 +12,7 @@ from typing import Any, Dict, Optional
 from autobot.tools import ToolRegistry
 from autobot.memory import MemoryStore
 from autobot.verification import ToolResultVerifier
+from autobot.capability_graph import ToolCapabilityGraph
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent / "hermes-repo"))
 
@@ -50,12 +51,22 @@ class HermesLoop:
         self.mode = mode
         self._last_task_id: Optional[str] = None
         self._verifier = ToolResultVerifier()
+        self._capability_graph = ToolCapabilityGraph(tools)
+
+    async def _refresh_capabilities(self) -> None:
+        try:
+            await self._capability_graph.probe_all()
+        except Exception as exc:
+            logger.debug("capability probe failed: %s", exc)
 
     async def run(self, goal: str) -> str:
         self.tools.ensure_loaded()
+        await self._refresh_capabilities()
         citation_goal = goal
         if any(keyword in goal.lower() for keyword in ["search", "find", "look up", "research", "url", "http", "citation"]):
             citation_goal = f"{goal}\n\nIMPORTANT: Always include source citations (URLs or file paths) in your final response. If you use web search or file reading tools, reference the sources you used."
+        capability_block = self._capability_graph.to_prompt_block()
+        final_goal = f"{capability_block}\n\n{citation_goal}"
         agent = AIAgent(
             base_url=AUTOBOT_GATEWAY,
             api_key=AUTOBOT_API_KEY,
@@ -69,7 +80,7 @@ class HermesLoop:
         try:
             result = await asyncio.to_thread(
                 agent.run_conversation,
-                user_message=citation_goal,
+                user_message=final_goal,
                 task_id=self._last_task_id,
             )
             final = result.get("final_response") or result.get("response") or ""
