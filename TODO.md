@@ -64,22 +64,36 @@
 - [x] Governance: implement tiered permission model for self-modification
 - [x] Repository: push current state to github.com/martinsharkey/autobot
 
+## High Priority Fixes (Post-Audit 2026-07-23)
+- [ ] Wire ToolResultVerifier into actual tool execution path
+- [ ] Wire GovernanceModule/SafetyRails into agent execution
+- [ ] Resolve hermes-repo plugin import failures
+- [ ] Expand gateway/session_context beyond minimal stub
+- [ ] Add confidence scoring on final agent responses
+- [ ] Implement plugin discovery and registration pipeline
+- [ ] Implement actual MCP server integration
+- [ ] Wire evolution/deploy/compute modules into live execution
+- [ ] Unify TradingAgents with main agent lifecycle
+- [ ] Test VS Code extension in actual VS Code runtime
+
 ## Fresh Audit Findings (2026-07-23 12:34)
-- [ ] Hallucination Mitigation: wire ToolResultVerifier into actual tool execution path
-- [ ] Hallucination Mitigation: add confidence scoring on final agent responses
-- [ ] Hallucination Mitigation: add fact-checking / consensus-building layer
 - [ ] Hallucination Mitigation: enforce citation requirements in prompt/response cycle
-- [ ] Modular Architecture: resolve hermes-repo plugin import failures at startup
-- [ ] Modular Architecture: implement actual MCP server integration (not stub)
-- [ ] Modular Architecture: implement plugin discovery and registration pipeline
+- [ ] Hallucination Mitigation: add fact-checking / consensus-building layer
 - [ ] Modular Architecture: add advanced RAG retrieval with real indexing/search
-- [ ] Mission Alignment: unify TradingAgents with main agent lifecycle
-- [ ] Mission Alignment: test VS Code extension in actual VS Code runtime
-- [ ] Mission Alignment: wire evolution/deploy/compute modules into live execution
 - [ ] Mission Alignment: expand gateway/session_context beyond minimal stub
+
+## Full Autonomy Mission
+- [ ] Define "vastly exceed Kilo" success criteria across reasoning, coding, research, and execution
+- [ ] Build autonomy readiness framework with measurable gates and checkpoints
+- [ ] Implement continuous self-evaluation feedback loop with human-in-the-loop oversight
+- [ ] Wire adaptive learning so Autobot improves beyond original training/context window
+- [ ] Establish safety rails and permission tiers for unsupervised operation
+- [ ] Create weekly autonomy progress reports with capability delta metrics
+- [ ] Target: Autobot becomes fully autonomous agent that exceeds current assistant capabilities
 
 ## Post-Completion Protocol
 - [x] Run full integration test suite after any remaining task completion
+- [ ] Follow-up audit to verify all fresh audit findings are resolved
 - [ ] Revisit, audit, and retest entire process once current todo list is completed
 - [ ] Validate all 8 success criteria from MISSION_PURPOSE.md with live execution
 - [ ] Performance benchmark: gateway latency, Hermes tool execution time, memory usage
