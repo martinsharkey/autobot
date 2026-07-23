@@ -38,6 +38,7 @@ license.json
 debug_payload.py
 test_ddg.py
 test_*.py
+!tests/test_*.py
 greeting.txt
 
 # Runtime artifacts

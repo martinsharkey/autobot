@@ -29,6 +29,7 @@ class ToolRegistry:
     def __init__(self, auto_discover: bool = True) -> None:
         self._registry = _registry
         self._discovered = False
+        self._verifier = _verifier
         if auto_discover:
             self.discover()
 
