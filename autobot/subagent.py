@@ -3,15 +3,14 @@ from __future__ import annotations
 
 import asyncio
 import os
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
-from autobot.agent import AutobotAgent
-from autobot.memory import MemoryStore
+from autobot.runtime import AgentRuntime
 
 
 class SubAgentSpawner:
     def __init__(self, memory: Optional[MemoryStore] = None) -> None:
-        self.memory = memory or MemoryStore()
+        self.memory = memory or AgentRuntime.shared().get_memory()
 
     async def spawn(
         self,
@@ -19,10 +18,9 @@ class SubAgentSpawner:
         mode: str = "coder",
         context: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
-        context = context or {}
-        agent = AutobotAgent(mode=mode)
+        rt = AgentRuntime.shared()
         try:
-            result = await agent.run(task)
+            result = await rt.spawn(task, mode=mode)
             self.memory.add(
                 f"Sub-agent ({mode}) completed: {task[:100]}",
                 source="subagent",
@@ -36,8 +34,6 @@ class SubAgentSpawner:
                 metadata={"mode": mode, "context": context, "error": str(exc)},
             )
             return {"status": "error", "mode": mode, "error": str(exc)}
-        finally:
-            await agent.close()
 
     async def spawn_batch(self, tasks: List[Dict[str, str]]) -> List[Dict[str, Any]]:
         results = []
