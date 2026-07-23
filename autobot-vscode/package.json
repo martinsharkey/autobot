@@ -1,8 +1,8 @@
 {
     "name": "autobot",
     "displayName": "AUTOBOT",
-    "description": "Autonomous AI coding agent running inside VS Code",
-    "version": "1.0.0",
+    "description": "Fully autonomous AI coding agent — self-healing, self-coding, self-enhancing",
+    "version": "2.0.0",
     "publisher": "autobot-dev",
     "license": "MIT",
     "engines": {
@@ -18,7 +18,8 @@
         "agent",
         "autonomous",
         "coding",
-        "llm"
+        "llm",
+        "self-healing"
     ],
     "activationEvents": [
         "onStartupFinished"
@@ -28,22 +29,17 @@
         "commands": [
             {
                 "command": "autobot.startChat",
-                "title": "AUTOBOT: Start New Chat",
+                "title": "AUTOBOT: Start Chat",
                 "category": "AUTOBOT"
             },
             {
                 "command": "autobot.runTask",
-                "title": "AUTOBOT: Run Task...",
+                "title": "AUTOBOT: Run Autonomous Task...",
                 "category": "AUTOBOT"
             },
             {
-                "command": "autobot.switchMode",
-                "title": "AUTOBOT: Switch Mode...",
-                "category": "AUTOBOT"
-            },
-            {
-                "command": "autobot.showMemory",
-                "title": "AUTOBOT: Show Memory & Skills",
+                "command": "autobot.stopAgent",
+                "title": "AUTOBOT: Stop Agent",
                 "category": "AUTOBOT"
             },
             {
@@ -57,63 +53,56 @@
                 "category": "AUTOBOT"
             },
             {
-                "command": "autobot.stop",
-                "title": "AUTOBOT: Stop Agent",
+                "command": "autobot.generateTests",
+                "title": "AUTOBOT: Generate Tests",
+                "category": "AUTOBOT"
+            },
+            {
+                "command": "autobot.showMemory",
+                "title": "AUTOBOT: Show Memory",
+                "category": "AUTOBOT"
+            },
+            {
+                "command": "autobot.showSkills",
+                "title": "AUTOBOT: Show Skills",
                 "category": "AUTOBOT"
             }
         ],
         "configuration": {
             "title": "AUTOBOT",
             "properties": {
+                "autobot.gatewayUrl": {
+                    "type": "string",
+                    "default": "http://127.0.0.1:8000",
+                    "description": "AUTOBOT Gateway URL"
+                },
+                "autobot.gatewayApiKey": {
+                    "type": "string",
+                    "default": "changeme",
+                    "description": "Gateway API key"
+                },
                 "autobot.defaultMode": {
                     "type": "string",
                     "default": "coder",
-                    "enum": ["architect", "coder", "reflector", "learner", "evolver"],
-                    "description": "Default agent mode"
+                    "enum": [
+                        "architect",
+                        "coder",
+                        "reflector",
+                        "learner",
+                        "evolver"
+                    ]
                 },
-                "autobot.maxTurns": {
+                "autobot.maxLoops": {
                     "type": "number",
                     "default": 50,
-                    "description": "Maximum conversation turns per task"
+                    "description": "Max autonomous loops per task"
                 },
-                "autobot.temperature": {
-                    "type": "number",
-                    "default": 0.5,
-                    "description": "LLM temperature (0.0-1.0)"
-                },
-                "autobot.autoImprove": {
+                "autobot.autoStartGateway": {
                     "type": "boolean",
                     "default": true,
-                    "description": "Enable periodic self-improvement cycles"
-                },
-                "autobot.autoReflect": {
-                    "type": "boolean",
-                    "default": true,
-                    "description": "Enable automatic reflection after tool use"
+                    "description": "Auto-start Python gateway if not running"
                 }
             }
-        },
-        "menus": {
-            "editor/context": [
-                {
-                    "command": "autobot.explainCode",
-                    "group": "autobot@1"
-                },
-                {
-                    "command": "autobot.refactorCode",
-                    "group": "autobot@2"
-                }
-            ],
-            "commandPalette": [
-                {
-                    "command": "autobot.explainCode",
-                    "when": "editorHasSelection"
-                },
-                {
-                    "command": "autobot.refactorCode",
-                    "when": "editorHasSelection"
-                }
-            ]
         },
         "keybindings": [
             {
@@ -157,8 +146,12 @@
         "package": "vsce package"
     },
     "devDependencies": {
-        "@types/vscode": "^1.85.0",
         "@types/node": "^20.0.0",
+        "@types/vscode": "^1.85.0",
         "typescript": "^5.3.0"
+    },
+    "dependencies": {
+        "@roo-code/types": "^1.115.0",
+        "zod": "^4.4.3"
     }
 }

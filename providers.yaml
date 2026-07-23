@@ -125,3 +125,10 @@ providers:
   default_model: Qwen/Qwen3-8B
   name: siliconflow
   weight: 5
+- active: true
+  api_key_env: DEEPSEEK_API_KEY
+  base_url: https://api.deepseek.com/v1
+  completions_path: chat/completions
+  default_model: deepseek-chat
+  name: deepseek
+  weight: 10

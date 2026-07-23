@@ -23,3 +23,24 @@ autobot_data/
 # OS
 .DS_Store
 Thumbs.db
+
+# Blue/Green deployment staging
+autobot-blue/
+autobot-green/
+autobot-active
+
+# Logs and telemetry
+*.log
+telemetry.jsonl
+license.json
+
+# Test/debug artifacts
+debug_payload.py
+test_ddg.py
+test_*.py
+greeting.txt
+
+# Runtime artifacts
+compute/
+memory/store.json
+overnight_report.md

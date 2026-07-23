@@ -1,47 +1,46 @@
 import * as vscode from 'vscode';
-import { AutobotAgent } from './agent';
+import { AgentClient } from './agentClient';
 import { ChatPanel } from './chatPanel';
 import { MemoryProvider } from './memoryProvider';
 import { Config } from './config';
 
-let agent: AutobotAgent | undefined;
+let client: AgentClient | undefined;
+let chatPanel: ChatPanel | undefined;
+let memoryProvider: MemoryProvider | undefined;
+let statusBarItem: vscode.StatusBarItem | undefined;
 
 export function activate(context: vscode.ExtensionContext) {
-    console.log('AUTOBOT: Activating extension...');
+    console.log('AUTOBOT v2.0 activating...');
+    Config.initialize(context);
+    client = new AgentClient();
+    chatPanel = new ChatPanel(context, client);
+    memoryProvider = new MemoryProvider(client);
 
-    // Initialize configuration
-    Config.initialize();
-
-    // Initialize the agent
-    agent = new AutobotAgent(context);
-
-    // Register the chat webview panel
-    const chatPanel = new ChatPanel(context, agent);
-
-    // Register memory tree view
-    const memoryProvider = new MemoryProvider(agent);
     vscode.window.registerTreeDataProvider('autobot.memory', memoryProvider);
 
-    // ── Register all commands ──
+    statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
+    statusBarItem.text = '$(rocket) AUTOBOT';
+    statusBarItem.command = 'autobot.startChat';
+    statusBarItem.show();
+    context.subscriptions.push(statusBarItem);
 
     const commands = [
-        vscode.commands.registerCommand('autobot.startChat', () => {
-            chatPanel.show();
-        }),
-
+        vscode.commands.registerCommand('autobot.startChat', () => chatPanel?.show()),
         vscode.commands.registerCommand('autobot.runTask', async () => {
             const goal = await vscode.window.showInputBox({
-                prompt: 'What should AUTOBOT do?',
-                placeHolder: 'e.g., Build a REST API for a todo app',
+                prompt: 'What should AUTOBOT do autonomously?',
+                placeHolder: 'e.g., Build a REST API for a todo app with tests',
                 ignoreFocusOut: true,
             });
             if (goal && goal.trim()) {
-                chatPanel.show();
-                chatPanel.sendMessage(goal);
-                await agent?.runTask(goal, (chunk) => chatPanel.appendChunk(chunk));
+                chatPanel?.show();
+                await chatPanel?.runTask(goal);
             }
         }),
-
+        vscode.commands.registerCommand('autobot.stopAgent', async () => {
+            await client?.stopAgent();
+            vscode.window.showInformationMessage('AUTOBOT stopped');
+        }),
         vscode.commands.registerCommand('autobot.switchMode', async () => {
             const modes = [
                 { label: '$(book) Architect', description: 'Design systems, plan architecture', slug: 'architect' },
@@ -50,78 +49,47 @@ export function activate(context: vscode.ExtensionContext) {
                 { label: '$(lightbulb) Learner', description: 'Research, experiment, learn', slug: 'learner' },
                 { label: '$(sync) Evolver', description: 'Self-improvement, optimization', slug: 'evolver' },
             ];
-            const picked = await vscode.window.showQuickPick(modes, {
-                title: 'Switch AUTOBOT Mode',
-                placeHolder: 'Select a mode...',
-            });
+            const picked = await vscode.window.showQuickPick(modes, { title: 'Switch AUTOBOT Mode' });
             if (picked) {
-                agent?.switchMode(picked.slug);
-                vscode.window.showInformationMessage(`AUTOBOT switched to ${picked.label} mode`);
+                chatPanel?.setMode(picked.slug);
+                vscode.window.showInformationMessage(`AUTOBOT: ${picked.label}`);
             }
         }),
-
         vscode.commands.registerCommand('autobot.showMemory', () => {
-            memoryProvider.refresh();
+            memoryProvider?.refresh();
             vscode.commands.executeCommand('workbench.view.extension.autobot-sidebar');
         }),
-
         vscode.commands.registerCommand('autobot.explainCode', async () => {
             const editor = vscode.window.activeTextEditor;
             if (!editor) return;
-            const selection = editor.selection;
-            const text = editor.document.getText(selection);
-            if (!text) {
-                vscode.window.showWarningMessage('Select code first');
-                return;
-            }
-            chatPanel.show();
-            chatPanel.sendMessage(`Explain this code:\n\`\`\`\n${text}\n\`\`\``);
-            await agent?.runTask(`Explain this code in detail:\n${text}`, 
-                (chunk) => chatPanel.appendChunk(chunk));
+            const text = editor.document.getText(editor.selection) || editor.document.getText();
+            chatPanel?.show();
+            await chatPanel?.runTask(`Explain this code in detail:\n\`\`\`\n${text.slice(0, 12000)}\n\`\`\``);
         }),
-
         vscode.commands.registerCommand('autobot.refactorCode', async () => {
             const editor = vscode.window.activeTextEditor;
             if (!editor) return;
-            const selection = editor.selection;
-            const text = editor.document.getText(selection);
-            if (!text) {
-                vscode.window.showWarningMessage('Select code first');
-                return;
-            }
-            chatPanel.show();
-            chatPanel.sendMessage(`Refactor this code:\n\`\`\`\n${text}\n\`\`\``);
-            await agent?.runTask(`Refactor and improve this code:\n${text}`,
-                (chunk) => chatPanel.appendChunk(chunk));
+            const text = editor.document.getText(editor.selection) || editor.document.getText();
+            chatPanel?.show();
+            await chatPanel?.runTask(`Refactor and improve this code:\n\`\`\`\n${text.slice(0, 12000)}\n\`\`\``);
         }),
-
         vscode.commands.registerCommand('autobot.generateTests', async () => {
             const editor = vscode.window.activeTextEditor;
             if (!editor) return;
-            const filePath = editor.document.uri.fsPath;
-            const content = editor.document.getText();
-            chatPanel.show();
-            chatPanel.sendMessage(`Generating tests for ${filePath}...`);
-            await agent?.runTask(
-                `Generate comprehensive unit tests for the code in ${filePath}:\n${content.slice(0, 8000)}`,
-                (chunk) => chatPanel.appendChunk(chunk));
-        }),
-
-        vscode.commands.registerCommand('autobot.stop', () => {
-            agent?.stop();
-            vscode.window.showInformationMessage('AUTOBOT stopped');
+            const text = editor.document.getText();
+            chatPanel?.show();
+            await chatPanel?.runTask(`Generate comprehensive unit tests for:\n\`\`\`\n${text.slice(0, 12000)}\n\`\`\``);
         }),
     ];
 
     context.subscriptions.push(...commands);
-
-    // Show welcome message
-    vscode.window.showInformationMessage('AUTOBOT ready! Press Ctrl+Alt+A to start chatting.');
-
-    console.log('AUTOBOT: Extension activated.');
+    vscode.window.showInformationMessage('AUTOBOT ready. Press Ctrl+Alt+A to start.');
+    console.log('AUTOBOT activated');
 }
 
 export function deactivate() {
-    agent?.dispose();
-    console.log('AUTOBOT: Deactivated.');
+    client?.dispose();
+    chatPanel?.dispose();
+    statusBarItem?.dispose();
+    console.log('AUTOBOT deactivated');
 }

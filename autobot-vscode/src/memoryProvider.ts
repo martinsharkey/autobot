@@ -1,14 +1,24 @@
 import * as vscode from 'vscode';
-import { AutobotAgent } from './agent';
+import { AgentClient } from './agentClient';
 
 export class MemoryProvider implements vscode.TreeDataProvider<MemoryItem> {
     private _onDidChangeTreeData = new vscode.EventEmitter<MemoryItem | undefined>();
     readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
+    private entries: any[] = [];
 
-    constructor(private agent: AutobotAgent) {}
+    constructor(private client: AgentClient) {}
 
     refresh(): void {
         this._onDidChangeTreeData.fire(undefined);
+    }
+
+    async load() {
+        this.entries = [];
+        const data = await this.client.getMemory();
+        if (data?.entries) {
+            this.entries = data.entries.slice(0, 50);
+        }
+        this.refresh();
     }
 
     getTreeItem(element: MemoryItem): vscode.TreeItem {
@@ -16,59 +26,44 @@ export class MemoryProvider implements vscode.TreeDataProvider<MemoryItem> {
     }
 
     getChildren(element?: MemoryItem): MemoryItem[] {
-        const memory = this.agent.getMemory();
-        
         if (!element) {
-            // Root level - show categories
-            const all = memory.getAll();
-            const categories = new Set(all.map(e => e.category));
-            const items: MemoryItem[] = [];
-            
-            for (const cat of categories) {
-                const count = all.filter(e => e.category === cat).length;
-                items.push(new MemoryItem(
-                    cat,
-                    vscode.TreeItemCollapsibleState.Collapsed,
-                    `$(book) ${cat} (${count})`
-                ));
+            const cats = new Map<string, number>();
+            for (const e of this.entries) {
+                cats.set(e.category, (cats.get(e.category) || 0) + 1);
             }
-            
-            items.push(new MemoryItem(
-                'stats',
-                vscode.TreeItemCollapsibleState.None,
-                `$(graph) ${all.length} total entries`
-            ));
-            
+            const items: MemoryItem[] = [];
+            for (const [cat, count] of cats) {
+                items.push(new MemoryItem(cat, vscode.TreeItemCollapsibleState.Collapsed, `${cat} (${count})`));
+            }
+            items.push(new MemoryItem('stats', vscode.TreeItemCollapsibleState.None, `stats: ${this.entries.length} entries`));
             return items;
         }
-
         if (element.id === 'stats') return [];
-
-        // Show entries for this category
-        return memory.getAll()
+        return this.entries
             .filter(e => e.category === element.id)
             .slice(0, 20)
-            .map(e => {
-                const item = new MemoryItem(
-                    e.id,
-                    vscode.TreeItemCollapsibleState.None,
-                    e.content.slice(0, 80) + (e.content.length > 80 ? '...' : '')
-                );
-                item.tooltip = `[${e.category}] ${e.content}\n\nImportance: ${e.importance}\nSource: ${e.source}\nTime: ${new Date(e.timestamp).toLocaleString()}`;
-                item.description = `\u2605 ${e.importance.toFixed(1)}`;
-                item.contextValue = 'memoryEntry';
-                return item;
-            });
+            .map(e => new MemoryItem(
+                e.id,
+                vscode.TreeItemCollapsibleState.None,
+                (e.content || '').slice(0, 80),
+                undefined,
+                undefined,
+                `Importance: ${e.importance}\n${e.content}`
+            ));
     }
 }
 
 class MemoryItem extends vscode.TreeItem {
     constructor(
-        public id: string,
+        public readonly id: string,
         collapsibleState: vscode.TreeItemCollapsibleState,
-        label: string
+        label: string,
+        tooltip?: string,
+        description?: string,
+        public readonly fullDescription?: string
     ) {
         super(label, collapsibleState);
-        this.id = id;
+        if (fullDescription) this.tooltip = fullDescription;
+        if (description) this.description = description;
     }
 }
