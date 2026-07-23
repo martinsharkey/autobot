@@ -208,6 +208,12 @@ class Config:
             "quick_think_model": "",
             "llm_provider": "openrouter",
             "backend_url": "",
+            "notification_telegram_token": os.getenv("TELEGRAM_BOT_TOKEN", ""),
+            "notification_telegram_chat_id": os.getenv("TELEGRAM_CHAT_ID", ""),
+            "notification_whatsapp_token": os.getenv("WHATSAPP_TOKEN", ""),
+            "notification_whatsapp_phone": os.getenv("WHATSAPP_PHONE", ""),
+            "notification_whatsapp_recipient": os.getenv("WHATSAPP_RECIPIENT", "07405260296"),
+            "autonomy_completion_phone": os.getenv("AUTONOMY_COMPLETION_PHONE", "07405260296"),
         })
 
     def _load_config_file(self):

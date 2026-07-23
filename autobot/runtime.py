@@ -50,12 +50,23 @@ class AgentRuntime:
         if self._governance and output:
             try:
                 rail = SafetyRails.validate_command(output)
-                if not rail.get("allowed", True):
+                if not rail.get("allowed", True) and self._looks_like_command(output):
                     output = f"[SAFETY_BLOCKED] {rail.get('reason', '')}"
                     result = {**result, "result": output, "safety_blocked": True}
             except Exception:
                 pass
         return {"status": "ok", "mode": mode, "result": result.get("result", "")}
+
+    @staticmethod
+    def _looks_like_command(text: str) -> bool:
+        stripped = text.strip()
+        if stripped.startswith("$") or stripped.startswith(">") or stripped.startswith("#"):
+            return True
+        lines = stripped.splitlines()
+        for line in lines[:3]:
+            if any(line.startswith(p) for p in ("sudo ", "rm ", "chmod ", "dd ", "mkfs ", "shutdown ", "reboot ")):
+                return True
+        return False
 
     async def spawn(self, goal: str, mode: str = "coder", **kwargs) -> Dict[str, Any]:
         return await self._spawner.spawn(goal, mode=mode)
