@@ -3,11 +3,15 @@ from __future__ import annotations
 
 import asyncio
 import inspect
-from typing import Any, Dict, Optional, Union
+import os
+from typing import Any, Dict, List, Optional, Union
 
 from autobot.agent import AutobotAgent
+from autobot.governance import GovernanceModule, SafetyRails
 from autobot.hermes_loop import HermesLoop
+from autobot.mcp.bridge import MCPBridge
 from autobot.memory import MemoryStore
+from autobot.plugins.interface import PluginRegistry
 from autobot.subagent import SubAgentSpawner
 from autobot.tools import ToolRegistry
 
@@ -20,6 +24,13 @@ class AgentRuntime:
         self._spawner = SubAgentSpawner()
         self._memory = MemoryStore()
         self._tools = ToolRegistry()
+        self._governance = GovernanceModule()
+        self._plugins = PluginRegistry()
+        self._mcp = MCPBridge(server_url=os.getenv("AUTOBOT_MCP_SERVER", ""), api_key=os.getenv("AUTOBOT_MCP_KEY"))
+        try:
+            self._plugins.discover()
+        except Exception:
+            pass
 
     @classmethod
     def shared(cls) -> "AgentRuntime":
@@ -29,7 +40,21 @@ class AgentRuntime:
 
     async def execute(self, goal: str, mode: str = "coder", **kwargs) -> Dict[str, Any]:
         self._memory.add(f"execute: {goal[:100]}", source="runtime", metadata={"mode": mode})
+        if self._governance:
+            try:
+                self._governance.log_audit("execute", {"goal": goal[:200], "mode": mode})
+            except Exception:
+                pass
         result = await self._agent.run(goal)
+        output = result.get("result", "")
+        if self._governance and output:
+            try:
+                rail = SafetyRails.validate_command(output)
+                if not rail.get("allowed", True):
+                    output = f"[SAFETY_BLOCKED] {rail.get('reason', '')}"
+                    result = {**result, "result": output, "safety_blocked": True}
+            except Exception:
+                pass
         return {"status": "ok", "mode": mode, "result": result.get("result", "")}
 
     async def spawn(self, goal: str, mode: str = "coder", **kwargs) -> Dict[str, Any]:
@@ -43,6 +68,12 @@ class AgentRuntime:
 
     def get_tools(self) -> ToolRegistry:
         return self._tools
+
+    def get_plugins(self) -> PluginRegistry:
+        return self._plugins
+
+    def get_mcp(self) -> MCPBridge:
+        return self._mcp
 
     def switch_mode(self, mode: str) -> None:
         self._agent.switch_mode(mode)
