@@ -64,6 +64,20 @@
 - [x] Governance: implement tiered permission model for self-modification
 - [x] Repository: push current state to github.com/martinsharkey/autobot
 
+## Fresh Audit Findings (2026-07-23 12:34)
+- [ ] Hallucination Mitigation: wire ToolResultVerifier into actual tool execution path
+- [ ] Hallucination Mitigation: add confidence scoring on final agent responses
+- [ ] Hallucination Mitigation: add fact-checking / consensus-building layer
+- [ ] Hallucination Mitigation: enforce citation requirements in prompt/response cycle
+- [ ] Modular Architecture: resolve hermes-repo plugin import failures at startup
+- [ ] Modular Architecture: implement actual MCP server integration (not stub)
+- [ ] Modular Architecture: implement plugin discovery and registration pipeline
+- [ ] Modular Architecture: add advanced RAG retrieval with real indexing/search
+- [ ] Mission Alignment: unify TradingAgents with main agent lifecycle
+- [ ] Mission Alignment: test VS Code extension in actual VS Code runtime
+- [ ] Mission Alignment: wire evolution/deploy/compute modules into live execution
+- [ ] Mission Alignment: expand gateway/session_context beyond minimal stub
+
 ## Post-Completion Protocol
 - [x] Run full integration test suite after any remaining task completion
 - [ ] Revisit, audit, and retest entire process once current todo list is completed

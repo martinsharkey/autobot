@@ -1,6 +1,54 @@
 # SESSION_LOG.md
 
-## 2026-07-23 12:30
+## 2026-07-23 12:34
+**Objective:** Fresh architecture audit after live gateway integration
+**Context:** User requested re-execution of the pre-session audit. Reviewed current codebase state for hallucination mitigation, modular architecture, and mission alignment.
+
+### 1. Hallucination Mitigation - MODERATE GAP (improved from CRITICAL)
+**Improvements:**
+- `autobot/verification.py` exists with `ToolResultVerifier` class
+- `autobot/web_search.py` has content filtering (BLOCKED_KEYWORDS, BLOCKED_DOMAINS)
+- `autobot/governance.py` has `SafetyRails` with dangerous command/path validation
+- `autobot/tools.py` has mode-based permission checks via `MODE_GROUPS`
+
+**New Findings:**
+- `ToolResultVerifier.verify()` is defined but NEVER called in any execution path. It is dead code.
+- `GovernanceModule` and `SafetyRails` are defined but never invoked before tool execution.
+- Web search returns JSON with URLs, but no citation requirement is enforced in the prompt/response cycle.
+- No confidence scoring on final agent responses.
+- No fact-checking, consensus-building, or cross-validation layer.
+
+### 2. Modular Architecture - MODERATE GAP (slightly improved)
+**Improvements:**
+- Gateway extracted into `gateway/routers/` with 3 routers (system, chat, agent)
+- `autobot/plugins/interface.py` defines `PluginInterface` ABC and `PluginRegistry`
+- `autobot/mcp/bridge.py` defines `MCPBridge` stub
+- `autobot/rag/retriever.py` provides RAG search with citations
+- Circular imports between runtime/subagent resolved
+
+**New Findings:**
+- `MCPBridge` is a stub with no actual MCP server integration
+- `PluginRegistry` has zero plugins registered and no discovery mechanism
+- 21 Hermes plugin import failures at startup (`gateway.config`, `gateway.platforms`, `gateway.authz_mixin`, `gateway.session_context` missing)
+- `hermes-repo` tool imports emit warnings on every gateway startup
+- `autobot/tools.py` registers only 7 core tools inline — no plugin discovery pipeline
+- Long import chain: runtime -> agent -> hermes_loop -> run_agent (still effectively a monolith)
+
+### 3. Mission Alignment - MODERATE GAP (mostly aligned)
+**Improvements:**
+- `AgentRuntime` is the single canonical interface for execution
+- VS Code extension wired to gateway with auth + streaming
+- Memory endpoint formatted for VS Code TreeDataProvider
+- `python -m autobot` CLI works
+
+**New Findings:**
+- Three conceptual agent entry points still exist, now wrapped by AgentRuntime but HermesLoop calls `run_conversation()` synchronously
+- `gateway/session_context.py` is a minimal stub with only `get_session_env()` — Hermes has many more functions not available
+- `autobot/evolution.py`, `autobot/deploy.py`, `autobot/compute.py` exist but are not wired into any live execution path
+- TradingAgents accessible but not unified with main agent lifecycle
+- VS Code extension structure complete but not tested in actual VS Code runtime
+
+## 2026-07-23 11:20
 **Objective:** Resolve runtime blockers for live gateway and VS Code extension integration
 **Context:** After refactoring the gateway into routers and unifying agent runtime, several blocking issues prevented the actual Web UI/MCP test flow from succeeding.
 **Progress:**
