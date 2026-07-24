@@ -130,6 +130,20 @@ def handle_place_mt5_trade(args: Dict[str, Any], **kw) -> str:
     if not validation.get("allowed", False):
         return f"Trade REJECTED by Risk Manager: {validation.get('reason')}"
         
+    # Self-Mutated indicator safety filter (additive enhancement)
+    try:
+        # Retrieve recent rates to analyze current indicator values
+        rates = mt5.get_historical_rates(symbol, "now")
+        if rates:
+            indicators = rates[0].get("indicators", {})
+            rsi = indicators.get("RSI", 50)
+            if action == "sell" and rsi > 70:
+                return f"Trade REJECTED: Overbought condition detected (RSI={rsi} > 70). Self-mutation safety block."
+            if action == "buy" and rsi < 30:
+                return f"Trade REJECTED: Oversold condition detected (RSI={rsi} < 30). Self-mutation safety block."
+    except Exception:
+        pass
+        
     res = mt5.place_order(symbol, volume, order_type=action)
     if "error" in res:
         return f"Error: Order execution failed: {res.get('error')}"
