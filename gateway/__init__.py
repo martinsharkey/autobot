@@ -80,10 +80,10 @@ def create_app() -> FastAPI:
         import sys
         import subprocess
         try:
-            print("[autobot] Starting background ntfy command listener...")
-            subprocess.Popen([sys.executable, "autobot/trading/ntfy_daemon.py"])
+            print("[autobot] Starting background Telegram command listener...")
+            subprocess.Popen([sys.executable, "autobot/trading/telegram_daemon.py"])
         except Exception as e:
-            print(f"[autobot] Failed to start ntfy daemon: {e}")
+            print(f"[autobot] Failed to start Telegram daemon: {e}")
 
         async def autonomous_loop():
             # Wait 10 seconds on startup
