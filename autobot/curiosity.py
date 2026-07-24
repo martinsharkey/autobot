@@ -82,3 +82,56 @@ class CuriosityEngine:
             except Exception:
                 pass
         return nodes
+
+    async def preserve_disk_space(self, min_free_gb: float = 5.0, hf_repo_id: Optional[str] = None) -> Dict[str, Any]:
+        """Check local disk space, zip logs and offload them to Hugging Face if low on space."""
+        import shutil
+        import zipfile
+        
+        home = Path(os.getenv("AUTOBOT_HOME", "."))
+        total, used, free = shutil.disk_usage(str(home.resolve()))
+        free_gb = free / (1024 ** 3)
+        
+        if free_gb >= min_free_gb:
+            return {"status": "skipped", "free_gb": round(free_gb, 2), "reason": "space_sufficient"}
+            
+        logs_dir = home / "coaching_logs"
+        zip_path = home / "autobot_data" / "logs_archive.zip"
+        
+        if not logs_dir.exists():
+            return {"status": "skipped", "reason": "no_logs_directory_found"}
+            
+        try:
+            with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zip_file:
+                for file in logs_dir.glob("*.jsonl"):
+                    zip_file.write(file, arcname=file.name)
+                    
+            upload_status = "skipped"
+            if hf_repo_id:
+                from autobot.slm_trainer import SLMTrainingManager
+                trainer = SLMTrainingManager()
+                import autobot.slm_trainer as slm
+                old_path = slm.TRAINING_FILE
+                slm.TRAINING_FILE = zip_path
+                try:
+                    res = trainer.upload_to_huggingface(repo_id=hf_repo_id, path_in_repo="logs_archive.zip")
+                    upload_status = res.get("status", "failed")
+                finally:
+                    slm.TRAINING_FILE = old_path
+                    
+            deleted_count = 0
+            if zip_path.exists():
+                for file in logs_dir.glob("*.jsonl"):
+                    file.unlink()
+                    deleted_count += 1
+                    
+            return {
+                "status": "archived",
+                "free_gb": round(free_gb, 2),
+                "deleted_logs": deleted_count,
+                "upload_status": upload_status,
+                "archive_path": str(zip_path)
+            }
+        except Exception as exc:
+            logger.warning("failed to preserve disk space: %s", exc)
+            return {"status": "failed", "error": str(exc)}

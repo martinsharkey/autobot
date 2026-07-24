@@ -79,3 +79,24 @@ class NotificationClient:
     def notify_full_autonomy(self) -> Dict[str, Any]:
         text = "AUTOBOT Full Autonomy Achieved.\nAll readiness gates passed. Operating autonomously."
         return self.notify(text, priority="critical")
+
+    def notify_martin_sharkey_heartbeat(self, disk_free_gb: float, active_tasks: int, peers_count: int) -> Dict[str, Any]:
+        text = (
+            f"Hello Martin Sharkey,\n"
+            f"This is your Autobot heartbeat status report:\n"
+            f"- Status: Operational\n"
+            f"- Laptop Free Storage: {disk_free_gb:.2f} GB\n"
+            f"- Active Task Count: {active_tasks}\n"
+            f"- Micro-Agent Peer Count: {peers_count}\n"
+            f"I am fully answerable to you and will continue monitoring our XAUUSD demo trade chart."
+        )
+        return self.notify(text, priority="normal")
+
+    def notify_failover_master(self, original_host: str, new_host: str, peer_port: int) -> Dict[str, Any]:
+        text = (
+            f"Martin Sharkey, ALERT:\n"
+            f"Autobot has lost connection to your laptop's master gateway ({original_host}).\n"
+            f"For self-preservation, I have successfully failed over and spawned a new master instance "
+            f"at ({new_host}:{peer_port}). I am always answerable to you."
+        )
+        return self.notify(text, priority="critical")

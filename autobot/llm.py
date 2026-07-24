@@ -63,14 +63,40 @@ def _ranked_providers(difficulty: str = "medium") -> List[Dict[str, Any]]:
     providers = _load_providers()
     now = time.time()
 
-    def rank(p: Dict[str, Any]) -> Tuple[float, int, int]:
-        health = _PROVIDER_HEALTH.get(p["name"], 0)
-        if health > now:
-            return (1, _PROVIDER_FAILURES.get(p["name"], 0), -p.get("weight", 0))
-        return (0, _PROVIDER_FAILURES.get(p["name"], 0), -p.get("weight", 0))
+    def rank(p: Dict[str, Any]) -> Tuple[int, int, int, int]:
+        health = 1 if _PROVIDER_HEALTH.get(p["name"], 0) > now else 0
+        failures = _PROVIDER_FAILURES.get(p["name"], 0)
+        free_score = _autofree_rank(p)
+        weight = -p.get("weight", 0)
+        return (health, failures, free_score, weight)
 
     providers.sort(key=rank)
     return providers
+
+
+async def discover_free_openrouter_models() -> List[str]:
+    url = "https://openrouter.ai/api/v1/models"
+    discovered = []
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            resp = await client.get(url)
+            if resp.status_code == 200:
+                models = resp.json().get("data", [])
+                free_models = [m for m in models if float(m.get("pricing", {}).get("prompt", 0)) == 0.0]
+                if free_models:
+                    with open(_PROVIDERS_PATH, "r", encoding="utf-8") as f:
+                        data = yaml.safe_load(f) or {}
+                    providers = data.get("providers", [])
+                    for p in providers:
+                        if p.get("name") == "openrouter":
+                            p["default_model"] = free_models[0].get("id")
+                            discovered.append(p["default_model"])
+                            break
+                    with open(_PROVIDERS_PATH, "w", encoding="utf-8") as f:
+                        yaml.safe_dump(data, f)
+    except Exception as exc:
+        logger.warning("failed to auto-discover openrouter free models: %s", exc)
+    return discovered
 
 
 def _mark_provider_success(name: str) -> None:
