@@ -15,6 +15,7 @@ class MessageType(str, Enum):
     STICKER = "sticker"
     VOICE = "voice"
     DOCUMENT = "document"
+    LOCATION = "location"
 
 
 class ProcessingOutcome:
@@ -62,6 +63,7 @@ def should_send_media_as_audio(platform: str, media_type: str) -> bool:
 
 SUPPORTED_IMAGE_DOCUMENT_TYPES = (".png", ".jpg", ".jpeg", ".gif", ".webp")
 SUPPORTED_VIDEO_TYPES = (".mp4", ".mov", ".avi", ".mkv")
+SUPPORTED_DOCUMENT_TYPES = (".pdf", ".doc", ".docx", ".txt", ".csv")
 
 
 def cache_document_from_bytes(data: bytes, content_type: str) -> str:
@@ -85,6 +87,14 @@ def cache_audio_from_url(url: str) -> str:
 
 
 def cache_video_from_url(url: str) -> str:
+    return ""
+
+
+def cache_image_from_url(url: str) -> str:
+    return ""
+
+
+def cache_document_from_url(url: str) -> str:
     return ""
 
 

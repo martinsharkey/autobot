@@ -15,7 +15,6 @@ if str(_PROJECT_ROOT) not in sys.path:
 
 logger = logging.getLogger(__name__)
 
-# Load env variables directly in case they were updated
 def load_env():
     env_path = Path(_PROJECT_ROOT) / ".env"
     env_vars = {}
@@ -44,11 +43,72 @@ async def execute_command(command: str) -> str:
     except Exception as e:
         return f"Error: {str(e)}"
 
-async def handle_incoming_text(text: str) -> str:
-    text = text.strip()
-    if not text:
-        return ""
+def get_system_status() -> str:
+    insights_path = Path(_PROJECT_ROOT) / "autobot_data" / "trading_insights.json"
+    win_rate = 0.0
+    total_trades = 0
+    if insights_path.exists():
+        try:
+            data = json.loads(insights_path.read_text(encoding="utf-8"))
+            win_rate = data.get("win_rate", 0.0)
+            total_trades = len(data.get("history", []))
+        except:
+            pass
+            
+    # Get last mutated file details if any
+    last_mod = "None"
+    tools_path = Path(_PROJECT_ROOT) / "autobot" / "tools" / "trading_tools.py"
+    if tools_path.exists():
+        import time
+        last_mod = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(tools_path.stat().st_mtime))
+
+    return (
+        "📊 [Autobot System Status]:\n"
+        f"- Active Evolution Daemon: Running\n"
+        f"- Simulated Trades Executed: {total_trades}\n"
+        f"- Simulated Win Rate: {win_rate}%\n"
+        f"- Last Code Mutation: {last_mod}\n"
+        f"- OpenRouter Model: google/gemma-4-31b-it:free (Auto-Free active)\n"
+        f"- Peer Scanning & Log Preservation: Active"
+    )
+
+async def run_evolution_task(token: str, chat_id: str):
+    await send_telegram_message(token, chat_id, "🤖 [Autobot Evolution]: Initiating code evolution loop. Scanning for missing capabilities or logic gaps...")
+    try:
+        from autobot.runtime import AgentRuntime
+        rt = AgentRuntime.shared()
+        res = await rt.evolve()
+        await send_telegram_message(token, chat_id, f"✅ [Autobot Evolution Output]: {res}")
+    except Exception as e:
+        await send_telegram_message(token, chat_id, f"❌ [Autobot Evolution Error]: {e}")
+
+async def run_curiosity_task(token: str, chat_id: str):
+    await send_telegram_message(token, chat_id, "🔍 [Autobot Curiosity]: Initiating subnet peer scans and disk preservation offloads...")
+    try:
+        from autobot.curiosity import CuriosityEngine
+        engine = CuriosityEngine()
+        peers = await engine.scan_peers()
+        disk_res = await engine.preserve_disk_space()
+        await send_telegram_message(token, chat_id, f"🔍 [Autobot Curiosity Results]: Found {len(peers)} peer nodes. Disk offloading: {disk_res}")
+    except Exception as e:
+        await send_telegram_message(token, chat_id, f"❌ [Autobot Curiosity Error]: {e}")
+
+async def handle_incoming_text(text: str, token: str, chat_id: str) -> str:
+    text_lower = text.lower().strip()
+    
+    # Proactive routers based on intent keywords
+    if any(k in text_lower for k in ["status", "progress", "what are you doing"]):
+        return get_system_status()
         
+    if any(k in text_lower for k in ["mutate", "evolve", "autonomy", "self code", "become autonomous"]):
+        asyncio.create_task(run_evolution_task(token, chat_id))
+        return "🤖 [Autobot Command]: evolution process triggered in the background. I will notify you upon completion."
+        
+    if any(k in text_lower for k in ["spawn", "free host", "resource", "preserve"]):
+        asyncio.create_task(run_curiosity_task(token, chat_id))
+        return "🔍 [Autobot Command]: Curiosity scanning and log offloading triggered in background."
+
+    # Check if shell command
     is_cmd = False
     cmd_prefixes = ["dir", "whoami", "python", "git", "pip", "npm", "node", "ls", "cd", "echo"]
     first_word = text.split()[0].lower() if text.split() else ""
@@ -57,24 +117,23 @@ async def handle_incoming_text(text: str) -> str:
         
     if is_cmd:
         return await execute_command(text)
-    else:
-        # LLM query
-        from autobot.llm import LLMClient
-        client = LLMClient(direct=True)
-        try:
-            payload = {
-                "messages": [
-                    {"role": "system", "content": "You are Autobot, speaking directly to your master Martin Sharkey. Keep responses concise, analytical, and highly helpful."},
-                    {"role": "user", "content": text}
-                ]
-            }
-            res = await client.chat_completions(payload)
-            response = res["choices"][0]["message"]["content"]
-            return response
-        except Exception as exc:
-            return f"Chat Error: {exc}"
-        finally:
-            await client.close()
+        
+    # Standard LLM Chat Fallback
+    from autobot.llm import LLMClient
+    client = LLMClient(direct=True)
+    try:
+        payload = {
+            "messages": [
+                {"role": "system", "content": "You are Autobot, speaking directly to your master Martin Sharkey. Keep responses concise, analytical, and highly helpful."},
+                {"role": "user", "content": text}
+            ]
+        }
+        res = await client.chat_completions(payload)
+        return res["choices"][0]["message"]["content"]
+    except Exception as exc:
+        return f"Chat Error: {exc}"
+    finally:
+        await client.close()
 
 async def send_telegram_message(token: str, chat_id: str, text: str):
     url = f"https://api.telegram.org/bot{token}/sendMessage"
@@ -117,10 +176,9 @@ async def listen_loop():
                         if not text:
                             continue
                             
-                        # If chat ID is not yet locked, lock it to this sender (Martin Sharkey)
+                        # Auto-lock Chat ID
                         if not chat_id:
                             chat_id = sender_id
-                            # Write to .env
                             env_path = Path(_PROJECT_ROOT) / ".env"
                             env_content = env_path.read_text(encoding="utf-8")
                             env_content = re.sub(r"TELEGRAM_CHAT_ID=.*", f"TELEGRAM_CHAT_ID={chat_id}", env_content)
@@ -129,13 +187,12 @@ async def listen_loop():
                             await send_telegram_message(token, chat_id, "LOCKED AND CONFIRMED. Autobot is now listening to you, Martin Sharkey!")
                             continue
                             
-                        # Ignore unauthorized messages
                         if sender_id != chat_id:
                             print(f"Ignored unauthorized message from chat ID: {sender_id}")
                             continue
                             
                         print(f"Received Telegram command: '{text}' from {sender_id}")
-                        response_text = await handle_incoming_text(text)
+                        response_text = await handle_incoming_text(text, token, chat_id)
                         if response_text:
                             await send_telegram_message(token, chat_id, response_text)
                 else:

@@ -12,6 +12,7 @@ class PlatformEntry:
     config: Any = None
     label: str = ""
     adapter_factory: Any = None
+    check_fn: Any = None
 
 
 class PlatformRegistry:
