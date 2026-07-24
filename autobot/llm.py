@@ -13,6 +13,7 @@ import httpx
 import yaml
 
 from autobot.config import get_mode_config
+from autobot.prompt import build_persona_prompt, ensure_system_message
 
 logger = logging.getLogger(__name__)
 
@@ -241,9 +242,8 @@ class LLMClient:
             "messages": [],
             "temperature": temperature,
         }
-        if system:
-            payload["messages"].append({"role": "system", "content": system})
-        payload["messages"].append({"role": "user", "content": text})
+        system_content = system or build_persona_prompt()
+        payload["messages"] = ensure_system_message([{"role": "user", "content": text}], system_content)
         data = await self.chat_completions(payload, prefer_direct=self._direct)
         choices = data.get("choices", [])
         message = choices[0].get("message", {}) if choices else {}

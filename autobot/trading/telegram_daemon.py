@@ -120,13 +120,14 @@ async def handle_incoming_text(text: str, token: str, chat_id: str) -> str:
         
     # Standard LLM Chat Fallback
     from autobot.llm import LLMClient
+    from autobot.prompt import build_persona_prompt, ensure_system_message
     client = LLMClient(direct=True)
     try:
+        system_content = build_persona_prompt() or "You are Autobot, speaking directly to your master Martin Sharkey. Keep responses concise, analytical, and highly helpful."
+        messages = [{"role": "user", "content": text}]
+        messages = ensure_system_message(messages, system_content)
         payload = {
-            "messages": [
-                {"role": "system", "content": "You are Autobot, speaking directly to your master Martin Sharkey. Keep responses concise, analytical, and highly helpful."},
-                {"role": "user", "content": text}
-            ]
+            "messages": messages
         }
         res = await client.chat_completions(payload)
         return res["choices"][0]["message"]["content"]

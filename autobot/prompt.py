@@ -47,6 +47,28 @@ You combine:
 - When done, use attempt_completion with a summary"""
 
 
+def _read_context_file(filename: str) -> str:
+    base = Path(__file__).resolve().parent.parent
+    path = base / filename
+    if not path.exists():
+        return ""
+    try:
+        return path.read_text(encoding="utf-8", errors="replace").strip()
+    except Exception:
+        return ""
+
+
+def build_persona_prompt() -> str:
+    mission = _read_context_file("MISSION_PURPOSE.md")
+    autonomy = _read_context_file("AUTONOMY_FRAMEWORK.md")
+    parts: List[str] = []
+    if mission:
+        parts.append(f"## Mission\n{mission}")
+    if autonomy:
+        parts.append(f"\n## Autonomy Framework\n{autonomy}")
+    return "\n\n".join(parts)
+
+
 def build_system_prompt(
     mode: str,
     memory: Optional[MemoryStore] = None,
@@ -63,6 +85,10 @@ def build_system_prompt(
     - volatile: memory, skills, timestamp (changes per turn)
     """
     parts = [_STABLE_TIER]
+
+    persona = build_persona_prompt()
+    if persona:
+        parts.append(f"\n{persona}")
 
     # Context tier: mode + instructions (Hermes stable_context)
     mode_conf = get_mode_config(mode)
@@ -128,3 +154,19 @@ def build_system_prompt(
         parts.append("\n## Trading Mode\nUse market data tools, analyze multiple perspectives, debate bull/bear cases, and make data-driven trading decisions.")
 
     return "\n".join(parts)
+
+
+def ensure_system_message(messages: List[Dict[str, str]], system_content: str) -> List[Dict[str, str]]:
+    """Ensure the message array starts with a system message.
+
+    If a system message exists, update it. Otherwise prepend it.
+    This preserves identity across context truncation and rolling history.
+    """
+    if not messages:
+        return [{"role": "system", "content": system_content}]
+    if messages[0].get("role") == "system":
+        updated = [{"role": "system", "content": system_content}]
+        updated.extend(messages[1:])
+        return updated
+    return [{"role": "system", "content": system_content}] + messages
+
