@@ -1,5 +1,14 @@
 # SESSION_LOG.md
 
+## 2026-07-24 07:41
+**Objective:** Implement MT5 historical rates/deals lookups and EA loss post-mortem analyzer.
+**Context:** User requested that the system should be able to analyze historical MT5 trade logs (mixed success Expert Advisor trades) and pull chart rate candlesticks/indicators around those times to analyze why they failed.
+**Progress:**
+- Extended `MT5Connector` in `autobot/trading/mt5_connector.py` with `get_historical_deals()` and `get_historical_rates()` methods to pull trade tickets, entry candles, and indicator metrics from MT5.
+- Implemented `analyze_past_ea_trades()` in `autobot/trading/mutator.py` to retrieve old Expert Advisor (EA) losing trades, fetch price actions around entry times, run post-mortems using the consensus engine, and save lessons to the `MemoryStore`.
+- Verified all additions with standalone test runner script `tests/test_mt5_history.py`.
+- Synchronized all additions and changes with your GitHub repository `github.com/martinsharkey/autobot`.
+
 ## 2026-07-24 07:33
 **Objective:** Implement ranked Auto-Free LLM routing, storage checks and offloading, and Martin Sharkey return-loyalty heartbeat reports.
 **Context:** User requested zero-cost execution (autofree ranking and discovery), protection of local laptop storage by offloading compressed log archives to Hugging Face, and a loyalty heartbeat return protocol to ensure Autobot is always answerable and reachable by Martin Sharkey.
