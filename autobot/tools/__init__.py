@@ -48,6 +48,12 @@ class ToolRegistry:
             count += 2
         except Exception as exc:
             print(f"[autobot.tools] self-patch register failed: {exc}")
+        try:
+            from autobot.tools.trading_tools import register_trading_tools
+            register_trading_tools(self._registry)
+            count += 3
+        except Exception as exc:
+            print(f"[autobot.tools] trading tools register failed: {exc}")
         self._discovered = True
         return count
 
