@@ -61,9 +61,26 @@ def should_send_media_as_audio(platform: str, media_type: str) -> bool:
     return False
 
 
-SUPPORTED_IMAGE_DOCUMENT_TYPES = (".png", ".jpg", ".jpeg", ".gif", ".webp")
-SUPPORTED_VIDEO_TYPES = (".mp4", ".mov", ".avi", ".mkv")
-SUPPORTED_DOCUMENT_TYPES = (".pdf", ".doc", ".docx", ".txt", ".csv")
+SUPPORTED_IMAGE_DOCUMENT_TYPES = {
+    ".png": "image/png",
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".gif": "image/gif",
+    ".webp": "image/webp"
+}
+SUPPORTED_VIDEO_TYPES = {
+    ".mp4": "video/mp4",
+    ".mov": "video/quicktime",
+    ".avi": "video/x-msvideo",
+    ".mkv": "video/x-matroska"
+}
+SUPPORTED_DOCUMENT_TYPES = {
+    ".pdf": "application/pdf",
+    ".doc": "application/msword",
+    ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    ".txt": "text/plain",
+    ".csv": "text/csv"
+}
 
 
 def cache_document_from_bytes(data: bytes, content_type: str) -> str:

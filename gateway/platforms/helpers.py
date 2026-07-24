@@ -2,6 +2,9 @@
 from __future__ import annotations
 
 from typing import Any
+import re
+
+TABLE_SEPARATOR_RE = re.compile(r"\|")
 
 
 class MessageDeduplicator:

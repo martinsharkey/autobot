@@ -14,6 +14,7 @@ class PlatformEntry:
     adapter_factory: Any = None
     check_fn: Any = None
     validate_config: Any = None
+    required_env: Any = None
 
 
 class PlatformRegistry:
