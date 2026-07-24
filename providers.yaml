@@ -3,7 +3,7 @@ providers:
   api_key_env: OPENROUTER_API_KEY
   base_url: https://openrouter.ai/api/v1
   completions_path: chat/completions
-  default_model: meta-llama/llama-3.1-8b-instruct
+  default_model: google/gemma-2-9b-it:free
   name: openrouter
   weight: 10
 - active: true
