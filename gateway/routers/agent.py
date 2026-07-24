@@ -1,6 +1,7 @@
-
+ 
 from __future__ import annotations
 
+import json
 from typing import Any
 
 from fastapi import APIRouter, Request
@@ -62,11 +63,13 @@ async def agent_run(request: Request):
         try:
             result = await rt.execute(goal, mode=mode)
             text = result.get("result", "")
+            if not text:
+                yield f"data: {json.dumps({'type': 'text', 'text': ''})}\n\n"
             for line in text.split("\n"):
-                yield f"data: {__import__('json').dumps({'type': 'text', 'text': line})}\n\n"
-            yield f"data: {__import__('json').dumps({'type': 'completed'})}\n\n"
+                yield f"data: {json.dumps({'type': 'text', 'text': line})}\n\n"
+            yield f"data: {json.dumps({'type': 'completed'})}\n\n"
         except Exception as e:
-            yield f"data: {__import__('json').dumps({'type': 'error', 'text': str(e)})}\n\n"
+            yield f"data: {json.dumps({'type': 'error', 'text': str(e)})}\n\n"
         yield "data: [DONE]\n\n"
 
     return StreamingResponse(generate(), media_type="text/event-stream")

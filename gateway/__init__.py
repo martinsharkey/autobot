@@ -76,46 +76,45 @@ def create_app() -> FastAPI:
 
     @app.on_event("startup")
     async def start_autonomous_loop():
-        import asyncio
-        import sys
-        import subprocess
-        try:
-            print("[autobot] Starting background Telegram command listener...")
-            subprocess.Popen([sys.executable, "autobot/trading/telegram_daemon.py"])
-        except Exception as e:
-            print(f"[autobot] Failed to start Telegram daemon: {e}")
+        pass
+        # import asyncio
+        # import sys
+        # import subprocess
+        # try:
+        #     print("[autobot] Starting background Telegram command listener...")
+        #     subprocess.Popen([sys.executable, "autobot/trading/telegram_daemon.py"])
+        # except Exception as e:
+        #     print(f"[autobot] Failed to start Telegram daemon: {e}")
 
-        async def autonomous_loop():
-            # Wait 10 seconds on startup
-            await asyncio.sleep(10)
-            while True:
-                try:
-                    from autobot.runtime import AgentRuntime
-                    rt = AgentRuntime.shared()
-                    print("[autobot] Running background self-evolution...")
-                    evolve_res = await rt.evolve()
-                    print(f"[autobot] Self-evolution result: {evolve_res}")
-                    
-                    print("[autobot] Running background overnight learner...")
-                    overnight_res = await rt.overnight()
-                    print(f"[autobot] Overnight learner result: {overnight_res}")
-
-                    print("[autobot] Running background trading monitor...")
-                    from autobot.trading.monitoring import TradingMonitor
-                    from autobot.trading.mutator import TradingStrategyMutator
-                    monitor = TradingMonitor()
-                    monitor.compile_dashboard()
-
-                    mutator = TradingStrategyMutator()
-                    mutation_res = await mutator.mutate_strategies()
-                    print(f"[autobot] Strategy mutation result: {mutation_res}")
-                except Exception as e:
-                    print(f"[autobot] Autonomous loop error: {e}")
-                
-                # Run once every 2 hours (7200 seconds)
-                await asyncio.sleep(7200)
-                
-        asyncio.create_task(autonomous_loop())
+        # async def autonomous_loop():
+        #     await asyncio.sleep(10)
+        #     while True:
+        #         try:
+        #             from autobot.runtime import AgentRuntime
+        #             rt = AgentRuntime.shared()
+        #             print("[autobot] Running background self-evolution...")
+        #             evolve_res = await rt.evolve()
+        #             print(f"[autobot] Self-evolution result: {evolve_res}")
+        #             
+        #             print("[autobot] Running background overnight learner...")
+        #             overnight_res = await rt.overnight()
+        #             print(f"[autobot] Overnight learner result: {overnight_res}")
+        #
+        #             print("[autobot] Running background trading monitor...")
+        #             from autobot.trading.monitoring import TradingMonitor
+        #             from autobot.trading.mutator import TradingStrategyMutator
+        #             monitor = TradingMonitor()
+        #             monitor.compile_dashboard()
+        #
+        #             mutator = TradingStrategyMutator()
+        #             mutation_res = await mutator.mutate_strategies()
+        #             print(f"[autobot] Strategy mutation result: {mutation_res}")
+        #         except Exception as e:
+        #             print(f"[autobot] Autonomous loop error: {e}")
+        #         
+        #         await asyncio.sleep(7200)
+        #         
+        # asyncio.create_task(autonomous_loop())
 
     return app
 

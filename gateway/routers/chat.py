@@ -108,18 +108,26 @@ async def _stream_chat_completions(payload: Dict[str, Any]) -> StreamingResponse
         raise HTTPException(status_code=503, detail="No healthy providers")
 
     async def generate():
+        stream_error_yielded = False
+
         for provider in providers:
             url = f"{provider.base_url.rstrip('/')}/{provider.completions_path.lstrip('/')}"
             proj_payload = _transform(provider, payload)
             try:
-                async with httpx.AsyncClient(timeout=provider.timeout_seconds) as client:
+                timeout = getattr(provider, 'timeout_seconds', 20)
+                async with httpx.AsyncClient(timeout=timeout) as client:
                     async with client.stream("POST", url, headers=_build_headers(provider), json=proj_payload) as resp:
                         if resp.status_code < 300:
                             ctype = resp.headers.get("content-type", "")
                             if "text/event-stream" in ctype:
+                                chunk_count = 0
                                 async for line in resp.aiter_lines():
                                     if line.startswith("data: "):
+                                        chunk_count += 1
                                         yield line + "\n\n"
+                                if chunk_count == 0:
+                                    yield f"data: {json.dumps({'error': 'empty_stream', 'provider': provider.name, 'message': 'Provider returned an empty stream with no finish_reason'})}\n\n"
+                                    stream_error_yielded = True
                                 return
                             body = await resp.aread()
                             try:
@@ -127,6 +135,7 @@ async def _stream_chat_completions(payload: Dict[str, Any]) -> StreamingResponse
                                 choices = data.get("choices") or []
                                 finish_reason = choices[0].get("finish_reason") if choices else "stop"
                                 message = choices[0].get("message", {}) if choices else {}
+                                content = message.get("content", "") or ""
                                 chunk = {
                                     "id": data.get("id", "gw-stream"),
                                     "object": "chat.completion.chunk",
@@ -135,18 +144,39 @@ async def _stream_chat_completions(payload: Dict[str, Any]) -> StreamingResponse
                                     "choices": [
                                         {
                                             "index": 0,
-                                            "delta": {"content": message.get("content", "")},
+                                            "delta": {"content": content},
                                             "finish_reason": finish_reason,
                                         }
                                     ],
                                 }
                                 yield f"data: {json.dumps(chunk)}\n\n"
+                                if not finish_reason:
+                                    finish_chunk = {
+                                        "id": data.get("id", "gw-stream"),
+                                        "object": "chat.completion.chunk",
+                                        "created": data.get("created"),
+                                        "model": data.get("model"),
+                                        "choices": [
+                                            {
+                                                "index": 0,
+                                                "delta": {},
+                                                "finish_reason": "stop",
+                                            }
+                                        ],
+                                    }
+                                    yield f"data: {json.dumps(finish_chunk)}\n\n"
                                 yield "data: [DONE]\n\n"
                                 return
                             except Exception:
+                                if not stream_error_yielded:
+                                    yield f"data: {json.dumps({'error': 'parse_error', 'provider': provider.name, 'message': 'Failed to parse provider response'})}\n\n"
+                                    stream_error_yielded = True
                                 yield "data: [DONE]\n\n"
                                 return
-            except Exception:
+            except Exception as exc:
+                if not stream_error_yielded:
+                    yield f"data: {json.dumps({'error': 'provider_error', 'provider': provider.name, 'message': str(exc)})}\n\n"
+                    stream_error_yielded = True
                 continue
         yield "data: [DONE]\n\n"
 
