@@ -60,3 +60,61 @@ class TradingStrategyMutator:
             "loss_analyzed": latest_loss,
             "coder_result": result
         }
+
+    async def analyze_past_ea_trades(self) -> Dict[str, Any]:
+        """Fetch historical EA trades from MT5, pull chart rates around their entry times, and analyze why they failed."""
+        from autobot.trading.mt5_connector import MT5Connector
+        mt5 = MT5Connector()
+        mt5.connect()
+        
+        deals = mt5.get_historical_deals()
+        if not deals:
+            return {"status": "skipped", "reason": "no_historical_deals_found"}
+            
+        losses = [d for d in deals if d.get("profit", 0) < 0]
+        if not losses:
+            return {"status": "skipped", "reason": "no_losing_deals_found"}
+            
+        analyzed_count = 0
+        analyses = []
+        
+        for loss in losses:
+            symbol = loss.get("symbol", "XAUUSD")
+            entry_time = loss.get("entry_time", "")
+            ticket = loss.get("ticket", 0)
+            
+            rates = mt5.get_historical_rates(symbol, entry_time)
+            rate_info = rates[0] if rates else {}
+            indicators = rate_info.get("indicators", {})
+            
+            prompt = (
+                f"You are executing an Expert Advisor (EA) trade analysis post-mortem.\n"
+                f"EA Trade Ticket: {ticket} ({loss.get('comment')})\n"
+                f"Symbol: {symbol} | Type: {loss.get('type')}\n"
+                f"Entry Time: {entry_time} | Entry Price: {loss.get('entry_price')}\n"
+                f"Exit Price: {loss.get('exit_price')} | Loss Amount: ${loss.get('profit')}\n"
+                f"Chart Rates Candle at Entry: Open={rate_info.get('open')}, High={rate_info.get('high')}, Low={rate_info.get('low')}, Close={rate_info.get('close')}\n"
+                f"Indicator States at Entry: {indicators}\n\n"
+                f"Please analyze why this trade failed (e.g., was RSI overbought/oversold, was price moving against a major trend, etc.). "
+                f"Provide a clear rule/lesson to prevent making this mistake in the future."
+            )
+            
+            from autobot.consensus import MultiLLMConsensus
+            consensus = MultiLLMConsensus()
+            res = await consensus.get_consensus_response(prompt, judge_provider="google-ai-studio")
+            analysis = res.get("consensus_text", "Failed to analyze.")
+            
+            self._runtime.get_memory().add(
+                f"EA Post-Mortem Lesson for Ticket {ticket}: {analysis[:200]}...",
+                source="trader",
+                metadata={"ticket": ticket, "symbol": symbol, "loss": loss, "indicators": indicators, "analysis": analysis}
+            )
+            
+            analyses.append({"ticket": ticket, "analysis": analysis})
+            analyzed_count += 1
+            
+        return {
+            "status": "completed",
+            "analyzed_count": analyzed_count,
+            "analyses": analyses
+        }
