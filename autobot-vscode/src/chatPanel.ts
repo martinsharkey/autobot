@@ -2,8 +2,8 @@ import * as vscode from 'vscode';
 import { AgentClient, TaskEvent } from './agentClient';
 import { Config } from './config';
 
-export class ChatPanel {
-    private panel: vscode.WebviewPanel | undefined;
+export class ChatPanel implements vscode.WebviewViewProvider {
+    private view: vscode.WebviewView | undefined;
     private disposables: vscode.Disposable[] = [];
     private client: AgentClient;
     private currentMode: string = 'coder';
@@ -14,22 +14,20 @@ export class ChatPanel {
         this.currentMode = Config.defaultMode;
     }
 
-    show() {
-        if (this.panel) {
-            this.panel.reveal(vscode.ViewColumn.Beside);
-            return;
-        }
-        this.panel = vscode.window.createWebviewPanel('autobot.chat', 'AUTOBOT Chat', vscode.ViewColumn.Beside, {
+    resolveWebviewView(
+        webviewView: vscode.WebviewView,
+        context: vscode.WebviewViewResolveContext,
+        _token: vscode.CancellationToken
+    ) {
+        this.view = webviewView;
+        webviewView.webview.options = {
             enableScripts: true,
-            retainContextWhenHidden: true,
-        });
-        this.panel.webview.html = getHtml(this.panel.webview, this.currentMode);
-        this.panel.onDidDispose(() => {
-            this.panel = undefined;
-            this.disposables.forEach(d => d.dispose());
-            this.disposables = [];
-        }, null, this.disposables);
-        this.panel.webview.onDidReceiveMessage(async (msg) => {
+            localResourceRoots: [this.context.extensionUri]
+        };
+
+        webviewView.webview.html = getHtml(webviewView.webview, this.currentMode);
+
+        webviewView.webview.onDidReceiveMessage(async (msg) => {
             switch (msg.command) {
                 case 'sendMessage':
                     if (msg.text?.trim()) await this.runTask(msg.text.trim());
@@ -39,10 +37,23 @@ export class ChatPanel {
                     this.appendSystem('Task stopped by user');
                     break;
                 case 'ping':
-                    this.panel?.webview.postMessage({ command: 'pong' });
+                    this.view?.webview.postMessage({ command: 'pong' });
                     break;
             }
         }, null, this.disposables);
+
+        webviewView.onDidDispose(() => {
+            this.view = undefined;
+            this.disposables.forEach(d => d.dispose());
+            this.disposables = [];
+        }, null, this.disposables);
+    }
+
+    show() {
+        vscode.commands.executeCommand('workbench.view.extension.autobot-sidebar');
+        if (this.view) {
+            this.view.show(true);
+        }
     }
 
     async runTask(goal: string) {
@@ -62,6 +73,7 @@ export class ChatPanel {
                         break;
                     case 'loop':
                         this.appendSystem(`*Loop ${event.count} / ${event.max}*`);
+                        vscode.commands.executeCommand('autobot.refreshMemory');
                         break;
                     case 'tool_call':
                         this.appendTool(event.name || 'unknown', event.args || {});
@@ -74,14 +86,19 @@ export class ChatPanel {
                         break;
                     case 'error':
                         this.appendSystem(`*Error: ${event.text}*`);
+                        vscode.window.showErrorMessage(`AUTOBOT: ${event.text}`);
                         break;
                     case 'completed':
                         this.appendSystem(`*Task completed*`);
+                        vscode.commands.executeCommand('autobot.refreshMemory');
                         break;
+                    default:
+                        if (event.text) this.appendSystem(`*${event.text}*`);
                 }
             });
-        } catch (e: any) {
-            this.appendSystem(`*Error: ${e.message}*`);
+        } catch (err: any) {
+            this.appendSystem(`*Error: ${err?.message || err}*`);
+            vscode.window.showErrorMessage(`AUTOBOT failed: ${err?.message || err}`);
         } finally {
             this.running = false;
         }
@@ -89,24 +106,24 @@ export class ChatPanel {
 
     setMode(mode: string) {
         this.currentMode = mode;
-        this.panel?.webview.postMessage({ command: 'setMode', mode });
+        this.view?.webview.postMessage({ command: 'setMode', mode });
     }
 
     appendUser(text: string) {
-        this.panel?.webview.postMessage({ command: 'appendUser', text });
+        this.view?.webview.postMessage({ command: 'appendUser', text });
     }
     appendAssistant(text: string) {
-        this.panel?.webview.postMessage({ command: 'appendAssistant', text });
+        this.view?.webview.postMessage({ command: 'appendAssistant', text });
     }
     appendSystem(text: string) {
-        this.panel?.webview.postMessage({ command: 'appendSystem', text });
+        this.view?.webview.postMessage({ command: 'appendSystem', text });
     }
     appendTool(name: string, args: any) {
-        this.panel?.webview.postMessage({ command: 'appendTool', name, args });
+        this.view?.webview.postMessage({ command: 'appendTool', name, args });
     }
 
     sendMessage(text: string) {
-        this.panel?.webview.postMessage({ command: 'addUserMessage', text });
+        this.view?.webview.postMessage({ command: 'addUserMessage', text });
     }
 
     dispose() {

@@ -11,7 +11,7 @@ from autobot.verification import ToolResultVerifier
 
 _HERMES_DIR = Path(__file__).resolve().parent.parent.parent / "hermes-repo"
 if str(_HERMES_DIR) not in sys.path:
-    sys.path.insert(0, str(_HERMES_DIR))
+    sys.path.append(str(_HERMES_DIR))
 
 from tools.registry import (  # noqa: E402
     registry as _registry,
@@ -38,9 +38,16 @@ class ToolRegistry:
     def discover(self) -> int:
         count = 0
         try:
-            count = discover_builtin_tools()
+            discovered = discover_builtin_tools()
+            count = len(discovered)
         except Exception as exc:
             print(f"[autobot.tools] discover failed: {exc}")
+        try:
+            from autobot.tools.self_patch_tools import register_self_patch_tools
+            register_self_patch_tools(self._registry)
+            count += 2
+        except Exception as exc:
+            print(f"[autobot.tools] self-patch register failed: {exc}")
         self._discovered = True
         return count
 
@@ -69,12 +76,18 @@ class ToolRegistry:
         return hermes_names + mcp_names
 
     def get_entry(self, name: str) -> Optional[ToolEntry]:
-        return self._registry.get(name)
+        return self._registry.get_entry(name)
 
     def is_available(self, name: str) -> bool:
         self.ensure_loaded()
         try:
-            return bool(check_tool_availability(name))
+            entry = self._registry.get_entry(name)
+            if entry is None:
+                return False
+            if not entry.check_fn:
+                return True
+            from tools.registry import _check_fn_cached
+            return _check_fn_cached(entry.check_fn)
         except Exception:
             return False
 
@@ -84,6 +97,7 @@ class ToolRegistry:
         if mcp_result is not None:
             return mcp_result
         try:
+            from model_tools import handle_function_call
             result = handle_function_call(name, args, task_id=task_id)
             verification = _verifier.verify(name, args, result)
             if not verification.valid or verification.confidence < 0.5:

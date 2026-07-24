@@ -9,7 +9,14 @@ import yaml
 from dotenv import load_dotenv
 from pydantic import BaseModel, Field
 
-load_dotenv(os.path.join(os.path.dirname(__file__), ".env"))
+_GATEWAY_DIR = os.path.dirname(__file__)
+_PROJECT_ROOT = os.path.abspath(os.path.join(_GATEWAY_DIR, ".."))
+_GATEWAY_DOTENV = os.path.join(_GATEWAY_DIR, ".env")
+_PROJECT_DOTENV = os.path.join(_PROJECT_ROOT, ".env")
+
+load_dotenv(_GATEWAY_DOTENV)
+if os.path.exists(_PROJECT_DOTENV):
+    load_dotenv(_PROJECT_DOTENV, override=False)
 
 
 class ProviderConfig(BaseModel):

@@ -19,7 +19,7 @@ _ROO_DIR = _AUTOBOT_DIR.parent / "autobot-vscode" / "src" / "roo"
 
 for _p in [str(_HERMES_DIR), str(_TRADING_DIR)]:
     if _p not in sys.path:
-        sys.path.insert(0, _p)
+        sys.path.append(_p)
 
 
 # ── Hermes core imports ───────────────────────────────────────────────────

@@ -1,4 +1,4 @@
-﻿
+
 from __future__ import annotations
 
 import asyncio
@@ -16,13 +16,17 @@ from autobot.capability_graph import ToolCapabilityGraph
 from autobot.rag.retriever import SemanticRagRetriever
 from autobot.fact_checker import FactChecker
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent / "hermes-repo"))
+_HERMES_DIR = str(Path(__file__).resolve().parent.parent.parent / "hermes-repo")
+if _HERMES_DIR not in sys.path:
+    sys.path.append(_HERMES_DIR)
 
 from providers import ProviderProfile, register_provider
 from run_agent import AIAgent
 
 
 AUTOBOT_GATEWAY = os.getenv("AUTOBOT_GATEWAY", "http://127.0.0.1:8001/v1").rstrip("/")
+if not AUTOBOT_GATEWAY.endswith("/v1"):
+    AUTOBOT_GATEWAY = AUTOBOT_GATEWAY + "/v1"
 AUTOBOT_API_KEY = os.getenv("AUTOBOT_API_KEY", "changeme")
 
 logger = logging.getLogger(__name__)

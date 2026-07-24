@@ -74,12 +74,22 @@
                 "autobot.gatewayUrl": {
                     "type": "string",
                     "default": "http://127.0.0.1:8001",
-                    "description": "AUTOBOT Gateway URL"
+                    "description": "AUTOBOT Gateway URL (fallback)"
                 },
                 "autobot.gatewayApiKey": {
                     "type": "string",
                     "default": "changeme",
-                    "description": "Gateway API key"
+                    "description": "Gateway API key (fallback)"
+                },
+                "autobot.autobotHome": {
+                    "type": "string",
+                    "default": "",
+                    "description": "Path to AUTOBOT repository (leave empty to use workspace folder)"
+                },
+                "autobot.pythonPath": {
+                    "type": "string",
+                    "default": "python",
+                    "description": "Python executable path for local agent"
                 },
                 "autobot.defaultMode": {
                     "type": "string",

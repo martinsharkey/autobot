@@ -1,10 +1,11 @@
-
+ 
 from __future__ import annotations
 
 import asyncio
 import json
 import logging
 import os
+import sys
 import time
 from datetime import datetime, timezone
 from pathlib import Path
@@ -12,6 +13,17 @@ from typing import Any, Dict, List, Optional
 
 from autobot.llm import LLMClient
 from autobot.memory import MemoryStore
+
+_AUTOBOT_DIR = Path(__file__).parent
+_HERMES_DIR = _AUTOBOT_DIR.parent / "hermes-repo"
+for _p in [str(_HERMES_DIR)]:
+    if _p not in sys.path:
+        sys.path.append(_p)
+
+AUTOBOT_GATEWAY = os.getenv("AUTOBOT_GATEWAY", "http://127.0.0.1:8001/v1").rstrip("/")
+if not AUTOBOT_GATEWAY.endswith("/v1"):
+    AUTOBOT_GATEWAY = AUTOBOT_GATEWAY + "/v1"
+AUTOBOT_API_KEY = os.getenv("AUTOBOT_API_KEY", "changeme")
 
 logger = logging.getLogger(__name__)
 
@@ -82,17 +94,20 @@ class AIMentor:
         self._client = LLMClient(provider_name=self.provider, model=self.model)
 
     async def respond(self, text: str, system: Optional[str] = None) -> Dict[str, Any]:
-        return await self._client.chat(text, system=system)
+        return await self._client.chat(text, system=system, temperature=0.7)
 
     async def generate_challenge(self, difficulty: str = "medium", topic: Optional[str] = None) -> str:
         topic_clause = f" on the topic of {topic}" if topic else ""
         prompt = f"You are a challenging AI mentor. Generate a {difficulty}-difficulty reasoning/challenge prompt{topic_clause}. Return ONLY the challenge text, no preamble."
         try:
             result = await self.respond(prompt)
-            return result.get("text", "").strip()
+            text = result.get("text", "").strip()
+            if not text or len(text) < 20:
+                raise ValueError("empty challenge")
+            return text
         except Exception as exc:
             logger.warning("mentor challenge generation failed: %s", exc)
-            return f"Explain the core principles of {topic or 'distributed systems'} and provide a concrete example."
+            return f"Solve this {difficulty}-difficulty coding problem on {topic or 'algorithms'}: write a function and explain your approach."
 
     async def evaluate(self, challenge: str, autobot_response: str, mentor_response: str) -> Dict[str, Any]:
         prompt = f"""You are an impartial judge. Compare two AI responses to the challenge below.
@@ -103,7 +118,7 @@ Response A (Autobot):
 {autobot_response}
 
 Response B (Mentor/Kilo):
-{mentor_response}
+{mentor_response if mentor_response else "(no response)"}
 
 Provide evaluation in JSON format:
 {{"winner": "autobot" or "mentor", "score_autobot": 0-1, "score_mentor": 0-1, "reason": "<brief reason>"}}"""
@@ -120,13 +135,28 @@ Provide evaluation in JSON format:
 
 
 class AutobotCoachingClient:
-    def __init__(self, runtime: Optional[Any] = None) -> None:
-        from autobot.runtime import AgentRuntime
-        self._runtime = runtime or AgentRuntime.shared()
+    def __init__(self) -> None:
+        self._client = LLMClient()
 
     async def respond(self, challenge: str, mode: str = "coder") -> Dict[str, Any]:
-        result = await self._runtime.execute(challenge, mode=mode)
-        return result
+        try:
+            from run_agent import AIAgent
+            agent = AIAgent(
+                base_url=AUTOBOT_GATEWAY,
+                api_key=AUTOBOT_API_KEY,
+                api_mode="chat_completions",
+                model="",
+                max_iterations=10,
+                enabled_toolsets=["terminal", "file", "search", "code_execution"],
+                quiet_mode=True,
+            )
+            text = agent.run_conversation(challenge)
+            return {"status": "ok", "mode": mode, "result": text if isinstance(text, str) else str(text)}
+        except Exception as exc:
+            logger.warning("Hermes agent coaching failed, falling back to LLM: %s", exc)
+            system = "You are a skilled coding assistant. Provide clear, correct, complete answers."
+            result = await self._client.chat(challenge, system=system, temperature=0.3)
+            return {"status": "ok", "mode": mode, "result": result.get("text", "")}
 
     async def optimize_with_providers(self, challenge: str) -> Dict[str, Any]:
         try:
@@ -139,7 +169,7 @@ class AutobotCoachingClient:
         best_score = -1.0
         for provider in active[:5]:
             try:
-                client = LLMClient(provider_name=provider.name, model=getattr(provider, "default_model", ""))
+                client = LLMClient(provider_name=provider.name, model=getattr(provider, "default_model", ""), direct=True)
                 result = await client.chat(challenge)
                 score = float(result.get("usage", {}).get("total_tokens", 0) > 0)
                 if score > best_score:
@@ -168,7 +198,7 @@ class CoachingFramework:
         self.session.log_turn("response", "autobot", autobot_text, metadata={"provider": "default"})
 
         mentor_resp = await self.mentor.respond(challenge)
-        mentor_text = mentor_resp.get("result", "")
+        mentor_text = mentor_resp.get("text", "")
         self.session.log_turn("response", "mentor", mentor_text, metadata={"provider": "mentor"})
 
         evaluation = await self.mentor.evaluate(challenge, autobot_text, mentor_text)
@@ -200,3 +230,4 @@ class CoachingFramework:
 
     def get_status(self) -> Dict[str, Any]:
         return self.session.to_dict()
+

@@ -1,4 +1,6 @@
 import * as vscode from 'vscode';
+import { spawn } from 'child_process';
+import * as path from 'path';
 
 export interface AgentMessage {
     role: 'user' | 'assistant' | 'tool' | 'system';
@@ -19,14 +21,34 @@ export class AgentClient {
     private baseUrl: string;
     private apiKey: string;
     private currentTaskId: string | undefined;
-    private eventSource: EventSource | undefined;
+    private childProcess: ReturnType<typeof spawn> | undefined;
     private onEvent: ((e: TaskEvent) => void) | undefined;
-    private reconnectTimer: NodeJS.Timeout | undefined;
+    private pendingRequests: Map<string, { resolve: (value: any) => void; reject: (reason: any) => void }> = new Map();
+    private requestId: number = 0;
+    private responseBuffer: string = '';
 
     constructor() {
         const cfg = vscode.workspace.getConfiguration('autobot');
         this.baseUrl = cfg.get<string>('gatewayUrl', 'http://127.0.0.1:8001').replace(/\/$/, '');
         this.apiKey = cfg.get<string>('gatewayApiKey', 'changeme');
+    }
+
+    private getPythonCommand(): string {
+        const cfg = vscode.workspace.getConfiguration('autobot');
+        const pythonPath = cfg.get<string>('pythonPath', 'python');
+        return pythonPath;
+    }
+
+    private getAutobotHome(): string {
+        const cfg = vscode.workspace.getConfiguration('autobot');
+        const autobotHome = cfg.get<string>('autobotHome', '');
+        if (autobotHome) return autobotHome;
+        
+        const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+        if (workspaceFolder) {
+            return workspaceFolder.uri.fsPath;
+        }
+        return vscode.env.appRoot;
     }
 
     async checkHealth(): Promise<boolean> {
@@ -44,144 +66,352 @@ export class AgentClient {
         }
     }
 
-    async runTask(goal: string, mode: string, onEvent: (e: TaskEvent) => void): Promise<string> {
-        this.onEvent = onEvent;
-        const resp = await fetch(`${this.baseUrl}/v1/agent/run`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${this.apiKey}`,
+    async startGateway(): Promise<void> {
+        const pythonCmd = this.getPythonCommand();
+        const autobotHome = this.getAutobotHome();
+        const mainPath = path.join(autobotHome, 'main.py');
+        
+        console.log(`[AUTOBOT] Starting gateway server: ${pythonCmd} ${mainPath}`);
+        const gatewayProcess = spawn(pythonCmd, ['main.py'], {
+            cwd: autobotHome,
+            env: {
+                ...process.env,
+                PYTHONPATH: autobotHome,
+                AUTOBOT_HOME: autobotHome,
             },
-            body: JSON.stringify({ goal, mode, max_loops: 50, stream: true }),
+            detached: true,
+            stdio: 'ignore'
         });
-        if (!resp.ok) {
-            const text = await resp.text();
-            throw new Error(`Agent run failed: ${resp.status} ${text}`);
-        }
-        const reader = resp.body?.getReader();
-        if (!reader) {
-            throw new Error('Streaming not supported');
-        }
-        const decoder = new TextDecoder();
-        let buffer = '';
-        while (true) {
-            const { value, done } = await reader.read();
-            if (done) break;
-            buffer += decoder.decode(value, { stream: true });
-            const lines = buffer.split('\n');
-            buffer = lines.pop() || '';
-            for (const line of lines) {
-                const trimmed = line.trim();
-                if (!trimmed || !trimmed.startsWith('data: ')) continue;
-                const data = trimmed.slice(6).trim();
-                if (data === '[DONE]') {
-                    onEvent({ type: 'completed' });
-                    return Promise.resolve('');
-                }
-                try {
-                    const chunk = JSON.parse(data);
-                    const eventType = chunk.type || 'text';
-                    onEvent({
-                        type: eventType,
-                        text: chunk.text,
-                        name: chunk.name,
-                        args: chunk.args,
-                        count: chunk.count,
-                        max: chunk.max,
-                    });
-                } catch {}
+        gatewayProcess.unref();
+        
+        for (let i = 0; i < 20; i++) {
+            await new Promise(r => setTimeout(r, 500));
+            if (await this.checkHealth()) {
+                console.log(`[AUTOBOT] Gateway server is now healthy`);
+                return;
             }
         }
-        return Promise.resolve('');
+        console.error(`[AUTOBOT] Gateway server failed to start or respond to health check`);
+    }
+
+    async runTask(goal: string, mode: string, onEvent: (e: TaskEvent) => void): Promise<string> {
+        this.onEvent = onEvent;
+        const pythonCmd = this.getPythonCommand();
+        const autobotHome = this.getAutobotHome();
+
+        return new Promise((resolve, reject) => {
+            try {
+                const child = spawn(pythonCmd, ['-m', 'autobot.stdio_agent'], {
+                    cwd: autobotHome,
+                    env: {
+                        ...process.env,
+                        PYTHONPATH: autobotHome,
+                        AUTOBOT_HOME: autobotHome,
+                    },
+                });
+
+                this.childProcess = child;
+                this.currentTaskId = `task_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+
+                let buffer = '';
+                let initReceived = false;
+                let completed = false;
+
+                const finish = (err?: Error) => {
+                    if (completed) return;
+                    completed = true;
+                    try { child.kill(); } catch {}
+                    this.childProcess = undefined;
+                    if (err) reject(err);
+                    else resolve('');
+                };
+
+                child.stdout.on('data', (data) => {
+                    buffer += data.toString();
+                    const lines = buffer.split('\n');
+                    buffer = lines.pop() || '';
+                    for (const line of lines) {
+                        const trimmed = line.trim();
+                        if (!trimmed) continue;
+                        try {
+                            const response = JSON.parse(trimmed);
+                            if (!initReceived && response.id === 'init') {
+                                initReceived = true;
+                                const request = {
+                                    id: this.currentTaskId,
+                                    method: 'run',
+                                    params: { goal, mode, max_loops: 50 },
+                                };
+                                child.stdin.write(JSON.stringify(request) + '\n');
+                                onEvent({ type: 'started', text: goal });
+                                continue;
+                            }
+                            if (response.event) {
+                                onEvent(response.event);
+                                continue;
+                            }
+                            if (response.error) {
+                                onEvent({ type: 'error', text: response.error });
+                                finish(new Error(response.error));
+                            } else if (response.result) {
+                                const result = response.result;
+                                if (result.status === 'ok') {
+                                    onEvent({ type: 'text', text: result.result });
+                                    onEvent({ type: 'completed' });
+                                    finish();
+                                } else if (result.status === 'aborted') {
+                                    onEvent({ type: 'error', text: result.result });
+                                    finish(new Error(result.result));
+                                } else {
+                                    onEvent({ type: 'error', text: result.result || 'Unknown error' });
+                                    finish(new Error(result.result || 'Unknown error'));
+                                }
+                            }
+                        } catch (e) {
+                            console.error('[AUTOBOT] Failed to parse response:', trimmed, e);
+                        }
+                    }
+                });
+
+                child.stderr.on('data', (data) => {
+                    console.error('[AUTOBOT stderr]', data.toString());
+                });
+
+                child.on('exit', (code) => {
+                    console.log(`[AUTOBOT] Process exited with code ${code}`);
+                    if (!completed) {
+                        const err = code !== 0 ? new Error(`Process exited with code ${code}`) : undefined;
+                        finish(err);
+                    }
+                });
+
+                child.on('error', (err) => {
+                    console.error('[AUTOBOT] Process error:', err);
+                    onEvent({ type: 'error', text: `Failed to start agent: ${err.message}` });
+                    finish(err);
+                });
+
+                setTimeout(() => {
+                    if (!completed) {
+                        onEvent({ type: 'error', text: 'Task timeout (60s)' });
+                        finish(new Error('Task timeout'));
+                    }
+                }, 60000);
+            } catch (err) {
+                onEvent({ type: 'error', text: `Failed to spawn agent: ${err}` });
+                reject(err);
+            }
+        });
     }
 
     async stopAgent(): Promise<void> {
-        try {
-            await fetch(`${this.baseUrl}/v1/agent/stop`, {
-                method: 'POST',
-                headers: { Authorization: `Bearer ${this.apiKey}` },
-            });
-        } catch {}
+        if (this.childProcess) {
+            this.childProcess.kill();
+            this.childProcess = undefined;
+        }
     }
 
     async getStatus(): Promise<any> {
-        try {
-            const resp = await fetch(`${this.baseUrl}/v1/agent/status`, {
-                headers: { Authorization: `Bearer ${this.apiKey}` },
-            });
-            if (resp.ok) return await resp.json() as any;
-        } catch {}
-        return null;
+        return { status: 'unknown' };
     }
 
     async chat(messages: any[]): Promise<any> {
-        const resp = await fetch(`${this.baseUrl}/v1/chat/completions`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                Authorization: `Bearer ${this.apiKey}`,
-            },
-            body: JSON.stringify({ model: 'gateway', messages }),
+        const lastMessage = messages[messages.length - 1];
+        const goal = lastMessage?.content || '';
+        
+        return new Promise((resolve, reject) => {
+            const child = spawn(this.getPythonCommand(), ['-m', 'autobot.stdio_agent'], {
+                cwd: this.getAutobotHome(),
+                env: {
+                    ...process.env,
+                    PYTHONPATH: this.getAutobotHome(),
+                    AUTOBOT_HOME: this.getAutobotHome(),
+                },
+            });
+
+            let buffer = '';
+            const request = {
+                id: `chat_${Date.now()}`,
+                method: 'run',
+                params: { goal, mode: 'coder' },
+            };
+
+            child.stdin.write(JSON.stringify(request) + '\n');
+
+            child.stdout.on('data', (data) => {
+                buffer += data.toString();
+                const lines = buffer.split('\n');
+                buffer = lines.pop() || '';
+                for (const line of lines) {
+                    const trimmed = line.trim();
+                    if (!trimmed) continue;
+                    try {
+                        const response = JSON.parse(trimmed);
+                        if (response.result?.status === 'ok') {
+                            resolve({
+                                choices: [{ message: { content: response.result.result } }]
+                            });
+                            child.kill();
+                            return;
+                        }
+                    } catch (e) {}
+                }
+            });
+
+            child.stderr.on('data', (data) => {
+                console.error('[AUTOBOT chat stderr]', data.toString());
+            });
+
+            child.on('error', (err) => {
+                reject(new Error(`Chat failed: ${err.message}`));
+            });
+
+            setTimeout(() => {
+                child.kill();
+                reject(new Error('Chat timeout'));
+            }, 60000);
         });
-        if (!resp.ok) throw new Error(`Chat failed: ${resp.status}`);
-        return await resp.json() as any;
     }
 
     async *chatStream(messages: any[]): AsyncGenerator<string, void, unknown> {
-        const resp = await fetch(`${this.baseUrl}/v1/chat/stream`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                Authorization: `Bearer ${this.apiKey}`,
+        const lastMessage = messages[messages.length - 1];
+        const goal = lastMessage?.content || '';
+        
+        const child = spawn(this.getPythonCommand(), ['-m', 'autobot.stdio_agent'], {
+            cwd: this.getAutobotHome(),
+            env: {
+                ...process.env,
+                PYTHONPATH: this.getAutobotHome(),
+                AUTOBOT_HOME: this.getAutobotHome(),
             },
-            body: JSON.stringify({ model: 'gateway', messages }),
         });
-        if (!resp.ok) throw new Error(`Stream failed: ${resp.status}`);
-        const reader = resp.body?.getReader();
-        if (!reader) return;
-        const decoder = new TextDecoder();
+
+        const request = {
+            id: `chat_${Date.now()}`,
+            method: 'run',
+            params: { goal, mode: 'coder' },
+        };
+
+        child.stdin.write(JSON.stringify(request) + '\n');
+
         let buffer = '';
-        while (true) {
-            const { value, done } = await reader.read();
-            if (done) break;
-            buffer += decoder.decode(value, { stream: true });
+        let completed = false;
+        const queue: string[] = [];
+        let resolveNext: (() => void) | null = null;
+        let rejectNext: ((err: Error) => void) | null = null;
+
+        child.stdout.on('data', (data) => {
+            buffer += data.toString();
             const lines = buffer.split('\n');
             buffer = lines.pop() || '';
             for (const line of lines) {
                 const trimmed = line.trim();
-                if (!trimmed || !trimmed.startsWith('data: ')) continue;
-                const data = trimmed.slice(6).trim();
-                if (data === '[DONE]') return;
+                if (!trimmed) continue;
                 try {
-                    const chunk = JSON.parse(data);
-                    const delta = (chunk as any).choices?.[0]?.delta?.content || '';
-                    if (delta) yield delta;
-                } catch {}
+                    const response = JSON.parse(trimmed);
+                    if (response.event && response.event.type === 'text') {
+                        queue.push(response.event.text);
+                        if (resolveNext) {
+                            resolveNext();
+                            resolveNext = null;
+                        }
+                    }
+                    if (response.result?.status === 'ok') {
+                        completed = true;
+                        child.kill();
+                        if (resolveNext) {
+                            resolveNext();
+                            resolveNext = null;
+                        }
+                    }
+                } catch (e) {}
+            }
+        });
+
+        child.on('error', (err) => {
+            if (rejectNext) {
+                rejectNext(err);
+                rejectNext = null;
+            }
+        });
+
+        child.on('close', () => {
+            completed = true;
+            if (resolveNext) {
+                resolveNext();
+                resolveNext = null;
+            }
+        });
+
+        while (!completed || queue.length > 0) {
+            if (queue.length > 0) {
+                yield queue.shift()!;
+            } else {
+                await new Promise<void>((resolve, reject) => {
+                    resolveNext = resolve;
+                    rejectNext = reject;
+                });
             }
         }
     }
 
     async getMemory(): Promise<any> {
-        try {
-            const resp = await fetch(`${this.baseUrl}/v1/memory`, {
-                headers: { Authorization: `Bearer ${this.apiKey}` },
+        const request = {
+            id: `memory_${Date.now()}`,
+            method: 'memory',
+            params: {},
+        };
+
+        return new Promise((resolve) => {
+            const child = spawn(this.getPythonCommand(), ['-m', 'autobot.stdio_agent'], {
+                cwd: this.getAutobotHome(),
+                env: {
+                    ...process.env,
+                    PYTHONPATH: this.getAutobotHome(),
+                    AUTOBOT_HOME: this.getAutobotHome(),
+                },
             });
-            if (resp.ok) return await resp.json() as any;
-        } catch {}
-        return null;
+
+            let buffer = '';
+            child.stdin.write(JSON.stringify(request) + '\n');
+
+            child.stdout.on('data', (data) => {
+                buffer += data.toString();
+                const lines = buffer.split('\n');
+                buffer = lines.pop() || '';
+                for (const line of lines) {
+                    const trimmed = line.trim();
+                    if (!trimmed) continue;
+                    try {
+                        const response = JSON.parse(trimmed);
+                        if (response.result) {
+                            resolve(response.result);
+                            child.kill();
+                            return;
+                        }
+                    } catch (e) {}
+                }
+            });
+
+            child.stderr.on('data', (data) => {
+                console.error('[AUTOBOT memory stderr]', data.toString());
+            });
+
+            setTimeout(() => {
+                child.kill();
+                resolve({ entries: [], total: 0 });
+            }, 5000);
+        });
     }
 
     async getSkills(): Promise<any> {
-        try {
-            const resp = await fetch(`${this.baseUrl}/v1/skills`, {
-                headers: { Authorization: `Bearer ${this.apiKey}` },
-            });
-            if (resp.ok) return await resp.json() as any;
-        } catch {}
         return null;
     }
 
     dispose() {
-        this.currentTaskId = undefined;
+        if (this.childProcess) {
+            this.childProcess.kill();
+            this.childProcess = undefined;
+        }
     }
 }

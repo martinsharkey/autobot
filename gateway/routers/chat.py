@@ -7,7 +7,7 @@ import time
 from typing import Any, Dict
 
 import httpx
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import JSONResponse, StreamingResponse
 
 from gateway.state import config

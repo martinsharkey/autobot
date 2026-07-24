@@ -30,7 +30,9 @@ class OvernightLearner:
         return self.time_since_last_run() >= self._session_gap
 
     def run_curator(self) -> dict:
-        sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent / "hermes-repo"))
+        _HERMES_DIR = str(Path(__file__).resolve().parent.parent.parent / "hermes-repo")
+        if _HERMES_DIR not in sys.path:
+            sys.path.append(_HERMES_DIR)
         from agent.curator import run_curator_review, apply_automatic_transitions, load_state, save_state
 
         transitions = apply_automatic_transitions()

@@ -9,7 +9,7 @@ from autobot.memory import MemoryStore
 
 _TRADING_BASE = Path(__file__).resolve().parent.parent.parent / "trading-repo" / "tradingagents"
 if str(_TRADING_BASE.parent) not in sys.path:
-    sys.path.insert(0, str(_TRADING_BASE.parent))
+    sys.path.append(str(_TRADING_BASE.parent))
 
 for _key in list(sys.modules):
     if _key == "tradingagents" or _key.startswith("tradingagents."):

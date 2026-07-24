@@ -13,9 +13,19 @@ export function activate(context: vscode.ExtensionContext) {
     console.log('AUTOBOT v2.0 activating...');
     Config.initialize(context);
     client = new AgentClient();
+    if (Config.autoStartGateway) {
+        client.checkHealth().then(healthy => {
+            if (!healthy) {
+                client?.startGateway();
+            }
+        });
+    }
     chatPanel = new ChatPanel(context, client);
     memoryProvider = new MemoryProvider(client);
 
+    context.subscriptions.push(
+        vscode.window.registerWebviewViewProvider('autobot.chat', chatPanel)
+    );
     vscode.window.registerTreeDataProvider('autobot.memory', memoryProvider);
 
     statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
@@ -55,9 +65,12 @@ export function activate(context: vscode.ExtensionContext) {
                 vscode.window.showInformationMessage(`AUTOBOT: ${picked.label}`);
             }
         }),
-        vscode.commands.registerCommand('autobot.showMemory', () => {
-            memoryProvider?.refresh();
+        vscode.commands.registerCommand('autobot.showMemory', async () => {
+            await memoryProvider?.load();
             vscode.commands.executeCommand('workbench.view.extension.autobot-sidebar');
+        }),
+        vscode.commands.registerCommand('autobot.refreshMemory', async () => {
+            await memoryProvider?.load();
         }),
         vscode.commands.registerCommand('autobot.explainCode', async () => {
             const editor = vscode.window.activeTextEditor;

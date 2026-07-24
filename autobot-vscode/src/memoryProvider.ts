@@ -12,7 +12,10 @@ export class MemoryProvider implements vscode.TreeDataProvider<MemoryItem> {
         this._onDidChangeTreeData.fire(undefined);
     }
 
+    private loadedOnce = false;
+
     async load() {
+        this.loadedOnce = true;
         this.entries = [];
         const data = await this.client.getMemory();
         if (data?.entries) {
@@ -25,8 +28,15 @@ export class MemoryProvider implements vscode.TreeDataProvider<MemoryItem> {
         return element;
     }
 
-    getChildren(element?: MemoryItem): MemoryItem[] {
+    async getChildren(element?: MemoryItem): Promise<MemoryItem[]> {
         if (!element) {
+            if (!this.loadedOnce) {
+                this.loadedOnce = true;
+                const data = await this.client.getMemory();
+                if (data?.entries) {
+                    this.entries = data.entries.slice(0, 50);
+                }
+            }
             const cats = new Map<string, number>();
             for (const e of this.entries) {
                 cats.set(e.category, (cats.get(e.category) || 0) + 1);

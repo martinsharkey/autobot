@@ -1,31 +1,27 @@
-
+ 
 from __future__ import annotations
 
 import asyncio
-import inspect
 import os
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
 from autobot.agent import AutobotAgent
-from autobot.capability_graph import ToolCapabilityGraph
 from autobot.coaching_framework import CoachingFramework
-from autobot.compute import publish_result
-from autobot.context_sanitizer import sanitize_context_files
-from autobot.deploy import prepare_release, validate_release
-from autobot.evolution import GapAnalysisEngine
-from autobot.governance import GovernanceModule, SafetyRails
-from autobot.hermes_loop import HermesLoop
-from autobot.mcp.bridge import MCPBridge
 from autobot.memory import MemoryStore
-from autobot.overnight import OvernightLearner
-from autobot.plugins.interface import PluginRegistry
-from autobot.safety import SafetyPolicy
-from autobot.subagent import SubAgentSpawner
 from autobot.tools import ToolRegistry
-from autobot.windows_compat import ensure_windows_compat
+from autobot.mcp.bridge import MCPBridge
+from autobot.safety import SafetyPolicy
+from autobot.governance import GovernanceModule
 from autobot.trading.mt5_connector import MT5Connector
 from autobot.trading.risk_manager import RiskManager
+from autobot.subagent import SubAgentSpawner
+from autobot.evolution import GapAnalysisEngine
+from autobot.overnight import OvernightLearner
+from autobot.plugins.interface import PluginRegistry
+from autobot.windows_compat import ensure_windows_compat
+from autobot.context_sanitizer import sanitize_context_files
+from autobot.delegation import HierarchicalDelegator
 
 
 class AgentRuntime:
@@ -44,7 +40,6 @@ class AgentRuntime:
         self._safety = SafetyPolicy()
         self._mt5 = MT5Connector()
         self._risk = RiskManager()
-        from autobot.delegation import HierarchicalDelegator
         self._delegator = HierarchicalDelegator()
         self._coaching: Optional[CoachingFramework] = None
         ensure_windows_compat()
@@ -87,7 +82,8 @@ class AgentRuntime:
                         return {"status": "blocked", "mode": mode, "result": f"Risk blocked: {risk.get('reason')}"}
             except Exception:
                 pass
-        result = await self._agent.run(goal)
+        on_event = kwargs.get("on_event")
+        result = await self._agent.run(goal, on_event=on_event)
         output = result.get("result", "")
         if self._governance and output:
             try:
@@ -111,13 +107,25 @@ class AgentRuntime:
         return False
 
     async def spawn(self, goal: str, mode: str = "coder", **kwargs) -> Dict[str, Any]:
-        return await self._spawner.spawn(goal, mode=mode)
+        agent = AutobotAgent(mode=mode)
+        res = await agent.run(goal)
+        return res
 
     async def batch(self, tasks: list[Dict[str, Any]]) -> list[Dict[str, Any]]:
         return await self._spawner.spawn_batch(tasks)
 
     async def evolve(self) -> Dict[str, Any]:
         gaps = self._evolution.scan()
+        return {"gaps": gaps, "status": "ok"}
+
+    def get_coaching(self) -> CoachingFramework:
+        if self._coaching is None:
+            self._coaching = CoachingFramework()
+        return self._coaching
+
+    def get_memory(self) -> MemoryStore:
+        return self._memory
+
         release = prepare_release()
         validation = validate_release(release.get("staging"))
         self._memory.add(f"evolve: {len(gaps)} gaps, staging={release.get('staging')}", source="evolution", metadata={"gaps": gaps, "release": release, "validation": validation})
