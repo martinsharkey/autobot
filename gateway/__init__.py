@@ -91,6 +91,16 @@ def create_app() -> FastAPI:
                     print("[autobot] Running background overnight learner...")
                     overnight_res = await rt.overnight()
                     print(f"[autobot] Overnight learner result: {overnight_res}")
+
+                    print("[autobot] Running background trading monitor...")
+                    from autobot.trading.monitoring import TradingMonitor
+                    from autobot.trading.mutator import TradingStrategyMutator
+                    monitor = TradingMonitor()
+                    monitor.compile_dashboard()
+
+                    mutator = TradingStrategyMutator()
+                    mutation_res = await mutator.mutate_strategies()
+                    print(f"[autobot] Strategy mutation result: {mutation_res}")
                 except Exception as e:
                     print(f"[autobot] Autonomous loop error: {e}")
                 
