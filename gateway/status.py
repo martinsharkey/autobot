@@ -9,6 +9,10 @@ def acquire_scoped_lock(key: str, ttl_seconds: int = 60) -> bool:
     return False
 
 
+def release_scoped_lock(key: str) -> None:
+    pass
+
+
 class GatewayStatus:
     def __init__(self) -> None:
         self._status: Dict[str, Any] = {}

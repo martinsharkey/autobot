@@ -109,6 +109,18 @@ def resolve_proxy_url(original_url: str) -> str:
     return original_url
 
 
+def utf16_len(s: str) -> int:
+    return len(s)
+
+
+def _prefix_within_utf16_limit(s: str, limit: int) -> str:
+    return s[:limit]
+
+
+def is_host_excluded_by_no_proxy(host: str) -> bool:
+    return False
+
+
 def proxy_kwargs_for_aiohttp(original_kwargs: Dict[str, Any]) -> Dict[str, Any]:
     return original_kwargs
 
