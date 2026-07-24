@@ -13,6 +13,7 @@ from typing import Any, Dict, List, Optional
 
 from autobot.llm import LLMClient
 from autobot.memory import MemoryStore
+from autobot.consensus import MultiLLMConsensus
 
 _AUTOBOT_DIR = Path(__file__).parent
 _HERMES_DIR = _AUTOBOT_DIR.parent / "hermes-repo"
@@ -89,8 +90,8 @@ class CoachingSession:
 
 class AIMentor:
     def __init__(self, provider: Optional[str] = None, model: Optional[str] = None) -> None:
-        self.provider = provider or os.getenv("AUTOBOT_MENTOR_PROVIDER", "")
-        self.model = model or os.getenv("AUTOBOT_MENTOR_MODEL", "")
+        self.provider = provider or os.getenv("AUTOBOT_MENTOR_PROVIDER", "google-ai-studio")
+        self.model = model or os.getenv("AUTOBOT_MENTOR_MODEL", "gemini-2.5-flash")
         self._client = LLMClient(provider_name=self.provider, model=self.model)
 
     async def respond(self, text: str, system: Optional[str] = None) -> Dict[str, Any]:
@@ -187,6 +188,7 @@ class CoachingFramework:
         self.session = CoachingSession(log_dir=self.log_dir)
         self.mentor = AIMentor()
         self.autobot = AutobotCoachingClient()
+        self.consensus = MultiLLMConsensus()
         self.win_target = 50
 
     async def run_coaching_round(self, difficulty: str = "medium", topic: Optional[str] = None) -> Dict[str, Any]:
@@ -201,12 +203,18 @@ class CoachingFramework:
         mentor_text = mentor_resp.get("text", "")
         self.session.log_turn("response", "mentor", mentor_text, metadata={"provider": "mentor"})
 
-        evaluation = await self.mentor.evaluate(challenge, autobot_text, mentor_text)
+        # Evaluate using multi-LLM consensus judge comparing Autobot and Mentor responses
+        responses_dict = {
+            "autobot": autobot_text,
+            "mentor": mentor_text
+        }
+        evaluation = await self.consensus._evaluate_responses(responses_dict, challenge, judge_provider="google-ai-studio")
         winner = evaluation.get("winner", "mentor")
         reason = evaluation.get("reason", "")
+        
         round_record = self.session.record_round(winner, reason, scores={
-            "autobot": evaluation.get("score_autobot", 0.0),
-            "mentor": evaluation.get("score_mentor", 0.0),
+            "autobot": evaluation.get("scores", {}).get("autobot", 0.0),
+            "mentor": evaluation.get("scores", {}).get("mentor", 0.0),
         })
 
         return {
