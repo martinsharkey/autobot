@@ -3,9 +3,15 @@ import json
 import logging
 import os
 import subprocess
+import sys
 from pathlib import Path
 import httpx
 import websockets
+
+# Add project root to search path to prevent ModuleNotFoundError
+_PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+if str(_PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(_PROJECT_ROOT))
 
 logger = logging.getLogger(__name__)
 
