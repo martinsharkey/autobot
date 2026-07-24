@@ -1,5 +1,16 @@
 # SESSION_LOG.md
 
+## 2026-07-24 07:33
+**Objective:** Implement ranked Auto-Free LLM routing, storage checks and offloading, and Martin Sharkey return-loyalty heartbeat reports.
+**Context:** User requested zero-cost execution (autofree ranking and discovery), protection of local laptop storage by offloading compressed log archives to Hugging Face, and a loyalty heartbeat return protocol to ensure Autobot is always answerable and reachable by Martin Sharkey.
+**Progress:**
+- Refactored `_ranked_providers` in `autobot/llm.py` to route LLM completions strictly to healthy, free models first based on `_autofree_rank()` score.
+- Added `discover_free_openrouter_models()` to automatically fetch free models from OpenRouter and update `providers.yaml`.
+- Implemented `preserve_disk_space()` in `autobot/curiosity.py` to inspect laptop disk usage, compress old log datasets (`coaching_logs/`) into a zip, upload the archive to Hugging Face Hub, and delete local files to protect local disk space.
+- Added `notify_martin_sharkey_heartbeat()` and `notify_failover_master()` in `autobot/notifications.py` to send status heartbeats to Martin Sharkey (`07405260296`) and send failover alert notifications if the master gateway is lost.
+- Verified all additions with standalone test runner script `tests/test_autofree_preservation.py` (which successfully archived and purged coaching logs).
+- Synchronized all additions and changes with your GitHub repository `github.com/martinsharkey/autobot`.
+
 ## 2026-07-24 07:28
 **Objective:** Implement Multi-LLM consensus routing, asymmetric adversarial coaching evaluation, curious resource-seeking nodes scanner, and SLM dataset training pipelines.
 **Context:** User requested intelligence upgrades: avoiding same-model coaching bias, querying multiple LLMs in parallel, scoring and ranking providers, scanning network ports for peer nodes to spawn micro-agents, and compiling dataset uploads for fine-tuning.
