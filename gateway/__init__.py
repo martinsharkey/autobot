@@ -77,6 +77,14 @@ def create_app() -> FastAPI:
     @app.on_event("startup")
     async def start_autonomous_loop():
         import asyncio
+        import sys
+        import subprocess
+        try:
+            print("[autobot] Starting background ntfy command listener...")
+            subprocess.Popen([sys.executable, "autobot/trading/ntfy_daemon.py"])
+        except Exception as e:
+            print(f"[autobot] Failed to start ntfy daemon: {e}")
+
         async def autonomous_loop():
             # Wait 10 seconds on startup
             await asyncio.sleep(10)
