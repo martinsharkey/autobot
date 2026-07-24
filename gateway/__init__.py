@@ -74,6 +74,31 @@ def create_app() -> FastAPI:
     app.include_router(mcp.router)
     app.include_router(coaching.router)
 
+    @app.on_event("startup")
+    async def start_autonomous_loop():
+        import asyncio
+        async def autonomous_loop():
+            # Wait 10 seconds on startup
+            await asyncio.sleep(10)
+            while True:
+                try:
+                    from autobot.runtime import AgentRuntime
+                    rt = AgentRuntime.shared()
+                    print("[autobot] Running background self-evolution...")
+                    evolve_res = await rt.evolve()
+                    print(f"[autobot] Self-evolution result: {evolve_res}")
+                    
+                    print("[autobot] Running background overnight learner...")
+                    overnight_res = await rt.overnight()
+                    print(f"[autobot] Overnight learner result: {overnight_res}")
+                except Exception as e:
+                    print(f"[autobot] Autonomous loop error: {e}")
+                
+                # Run once every 2 hours (7200 seconds)
+                await asyncio.sleep(7200)
+                
+        asyncio.create_task(autonomous_loop())
+
     return app
 
 
